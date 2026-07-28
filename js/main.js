@@ -50,7 +50,7 @@ const LOOKS = [
   /*5 심야→여명*/ { zen: C(0x060a14), hor: C(0x152238), haze: C(0x1d2f4a), sunC: C(0xd8e4ff), el: -18, az: -2.2, disc: 0, glow: 0.2, stars: 0.85, fogC: C(0x081020), fogD: 3.1e-4, exp: 1.0, sunI: 0.1, sunL: 0.06, cityLit: 0.7, hemiI: 0.42 },
   /*6 박명*/      { zen: C(0x0a1224), hor: C(0x3a3040), haze: C(0x5a3c2c), sunC: C(0xffc27d), el: -10, az: -2.35, disc: 0, glow: 0.5, stars: 0.5, fogC: C(0x121424), fogD: 3.0e-4, exp: 1.0, sunI: 0.3, sunL: 0.15, cityLit: 0.6, hemiI: 0.42 },
   /*7 일출*/      { zen: C(0x1e4066), hor: C(0xd8894a), haze: C(0xf0b46a), sunC: C(0xffd9a0), el: 4, az: -2.3, disc: 0.8, glow: 0.9, stars: 0, fogC: C(0x363e54), fogD: 2.6e-4, exp: 1.03, sunI: 1.0, sunL: 0.85, cityLit: 0.2, hemiI: 0.6 },
-  /*8 아침*/      { zen: C(0x2b527e), hor: C(0x7fa2c2), haze: C(0xd8c090), sunC: C(0xfff0d0), el: 10, az: -2.25, disc: 0.7, glow: 0.5, stars: 0, fogC: C(0x7690a8), fogD: 1.7e-4, exp: 1.0, sunI: 0.9, sunL: 1.0, cityLit: 0.08, hemiI: 0.75 },
+  /*8 아침*/      { zen: C(0x2b527e), hor: C(0x7fa2c2), haze: C(0xd8c090), sunC: C(0xfff0d0), el: 10, az: -2.25, disc: 0.7, glow: 0.5, stars: 0, fogC: C(0x7690a8), fogD: 1.4e-4, exp: 1.0, sunI: 0.9, sunL: 1.0, cityLit: 0.08, hemiI: 0.75 },
 ];
 
 const lookNow = {
@@ -217,7 +217,7 @@ const state = {
   tokScale: 0, tokAlpha: 1, tokPos: new THREE.Vector3(),
   walletPos: new THREE.Vector3(0, 60, 400),
   earnTarget: new THREE.Vector3(0, 60, 400),
-  sparkRate: 0, traffic: 0, earnStr: 0,
+  sparkRate: 0, traffic: 0, earnStr: 0, searchI: 0,
 };
 
 function winLitAt(T, t) {
@@ -279,6 +279,7 @@ function director(t, dt) {
 
   // ── 성장/수익
   state.traffic = REDUCED ? 0 : sp(T, 5.05, 5.5) * (1 - sp(T, 6.75, 7.35));
+  state.searchI = sp(T, 5.1, 5.45) * (1 - sp(T, 6.3, 6.8));
   state.earnStr = REDUCED ? 0 : sp(T, 6.15, 6.55) * (1 - sp(T, 6.95, 7.4));
 
   // ── 룩 적용
@@ -311,6 +312,9 @@ function director(t, dt) {
   city.u.uCityLit.value = L.cityLit * (0.6 + 0.4 * sp(T, 0, 0.35)) + state.traffic * 0.1;
   city.u.uTime.value = t;
   city.u.uHemiSky.value.copy(L.hor).multiplyScalar(0.9);
+  city.u.uSunDir.value.copy(tmpA);
+  city.u.uSunColor.value.copy(L.sunC);
+  city.u.uSunI.value = Math.min(1, L.sunL * Math.max(Math.sin(el) * 3.2, 0));
   ground.u.uPlazaLit.value = Math.max(sp(T, 2.45, 2.85) * 0.6, sp(T, 5.0, 5.45)) * (1 - sp(T, 7.2, 7.9) * 0.5);
   ground.u.uTime.value = t;
   trails.u.uTime.value = t;

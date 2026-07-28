@@ -558,6 +558,31 @@ export function createTower() {
   const halo = new THREE.Sprite(haloMat); halo.scale.setScalar(88); halo.position.y = H - 10;
   group.add(avi, beam, halo);
 
+  // 전망대 서치라이트 2기 (성장 챕터) — 길이 방향으로 사그라드는 빔
+  const searchU = { uO: { value: 0 } };
+  const searchMat = new THREE.ShaderMaterial({
+    uniforms: searchU,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    vertexShader: 'varying float vy; void main(){ vy = uv.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'varying float vy; uniform float uO; void main(){ float a = uO * pow(vy, 2.0); gl_FragColor = vec4(vec3(0.81, 0.91, 1.0) * a, a); }',
+  });
+  const searchGroup = new THREE.Group();
+  searchGroup.position.y = H - 18;
+  for (let s = 0; s < 2; s++) {
+    const coneGeo = new THREE.ConeGeometry(34, 400, 18, 1, true);
+    coneGeo.translate(0, -200, 0);
+    const cone = new THREE.Mesh(coneGeo, searchMat);
+    const pivot = new THREE.Group();
+    pivot.rotation.y = s * Math.PI;
+    cone.rotation.x = 1.12; // 바깥쪽 아래로 기울임
+    pivot.add(cone);
+    searchGroup.add(pivot);
+  }
+  group.add(searchGroup);
+
   const api = {
     group, shellU, panelsU: panels.u,
     refreshToken: token.redrawFace,
@@ -623,6 +648,9 @@ export function createTower() {
       aviMat.opacity = state.aviI * (0.55 + 0.45 * Math.sin(t * 2.2));
       beamMat.opacity = state.beamI * 0.38;
       haloMat.opacity = state.beamI * 0.5 + state.crownLit * 0.1;
+      searchU.uO.value = state.searchI * 0.34;
+      searchGroup.visible = state.searchI > 0.01;
+      searchGroup.rotation.y = t * 0.32;
 
       // 히어로 토큰
       token.group.visible = state.tokScale > 0.001;

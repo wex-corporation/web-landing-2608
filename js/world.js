@@ -114,6 +114,10 @@ export function createCity() {
       }
     }
   }
+  // 타워 기단 포디움 (몰 컴플렉스 오마주)
+  items.push({ x: 118, z: 62, sx: 96, sy: 36, sz: 74, seed: 7.7, lit: 0.95 });
+  items.push({ x: -96, z: -88, sx: 82, sy: 28, sz: 96, seed: 8.8, lit: 0.9 });
+  items.push({ x: 36, z: -128, sx: 70, sy: 44, sz: 58, seed: 9.9, lit: 0.85 });
   // 원경 스카이라인 링
   for (let i = 0; i < 260; i++) {
     const a = rand() * Math.PI * 2;
@@ -132,6 +136,9 @@ export function createCity() {
     uTime: { value: 0 },
     uHemiSky: { value: new THREE.Color(0x233246) },
     uHemiGround: { value: new THREE.Color(0x090c12) },
+    uSunDir: { value: new THREE.Vector3(0, -1, 0) },
+    uSunColor: { value: new THREE.Color(0xffe0b0) },
+    uSunI: { value: 0.0 },
     ...FOG_UNIFORMS(),
   };
   const mat = new THREE.ShaderMaterial({
@@ -156,8 +163,8 @@ export function createCity() {
     fragmentShader: /* glsl */`
       varying vec3 vLocal; varying vec3 vN; varying float vSeed; varying float vLit;
       varying float vViewZ; varying float vH;
-      uniform float uCityLit, uTime;
-      uniform vec3 uHemiSky, uHemiGround, uFogColor;
+      uniform float uCityLit, uTime, uSunI;
+      uniform vec3 uHemiSky, uHemiGround, uFogColor, uSunDir, uSunColor;
       uniform float uFogDensity;
       ${GLSL_COMMON}
       void main(){
@@ -169,6 +176,10 @@ export function createCity() {
         // 면별 미세 명암
         float faceTone = 0.75 + 0.25 * (0.5 + 0.5 * vN.x) * (0.6 + 0.4 * vN.z);
         vec3 col = base * amb * 3.2 * faceTone;
+        // 주간 태양 음영 (일출·아침)
+        float sunDiff = max(dot(vN, normalize(uSunDir)), 0.0);
+        col += base * uSunColor * sunDiff * uSunI * 6.5;
+        col *= 1.0 + uSunI * 0.4;
         if (an.y < 0.5) {
           vec2 fc = (an.x > 0.5) ? vec2(vLocal.z, vLocal.y) : vec2(vLocal.x, vLocal.y);
           vec2 pitch = vec2(5.4, 4.1);

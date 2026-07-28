@@ -214,6 +214,7 @@ h2 {
   background: radial-gradient(ellipse at center, rgba(8, 14, 24, 0.30), rgba(8, 14, 24, 0.10) 52%, transparent 76%);
 }
 .copy.cta h2, .copy.cta .body { text-shadow: 0 2px 26px rgba(10, 16, 28, 0.75), 0 0 8px rgba(10, 16, 28, 0.4); }
+.copy.cta .body { color: #e2eaf6; }
 .cta-glyph { margin-bottom: 26px; filter: drop-shadow(0 0 30px rgba(94,230,255,0.35)); }
 .cta-actions { display: flex; gap: 14px; justify-content: center; margin-top: 36px; }
 .btn {
@@ -232,6 +233,7 @@ h2 {
 /* ── 반응형 ── */
 @media (max-width: 820px) {
   .rail span { display: none; }
+  .body br, .sub br { display: none; }
   .rail { right: 12px; gap: 13px; }
   .copy.right { text-align: left; margin-left: 0; margin-right: auto; }
   .copy.right .stats, .badges, .bigcount { justify-content: flex-start; }

@@ -347,9 +347,11 @@ function director(t, dt) {
   state.tokScale = tokIn * (1 - tokFly * 0.98);
   state.tokAlpha = sat(tokIn * (1 - sp(T, 4.28, 4.4)));
   if (state.tokScale > 0.001) {
+    if (MOBILE) state.tokScale *= 0.82;
     const f = tmpA.set(0, 0, -1).applyQuaternion(camera.quaternion);
     const r = tmpB.set(1, 0, 0).applyQuaternion(camera.quaternion);
-    tmpC.copy(camera.position).addScaledVector(f, 300).addScaledVector(r, MOBILE ? 0 : -85).add(tmpD.set(0, 8, 0));
+    const upOff = MOBILE ? 62 : 8;
+    tmpC.copy(camera.position).addScaledVector(f, 300).addScaledVector(r, MOBILE ? 0 : -85).add(tmpD.set(0, upOff, 0));
     state.tokPos.copy(tmpC).lerp(state.walletPos, tokFly);
   }
 

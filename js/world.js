@@ -84,12 +84,21 @@ export function createCity() {
     const dx = (x + 385) / 260, dz = (z - 265) / 190; // 호수 타원(마진 포함)
     return dx * dx + dz * dz < 1.0;
   };
+  // 카메라 진입 경로를 따라 타워로 향하는 대로(大路) 회랑 확보
+  const AVE = { x: 0.5, z: 0.87 }; // 정규화 방향
+  const inAvenue = (x, z) => {
+    const proj = x * AVE.x + z * AVE.z;
+    if (proj < 60 || proj > 1500) return false;
+    const perp = Math.abs(x * AVE.z - z * AVE.x);
+    return perp < 95;
+  };
   for (let gx = -16; gx <= 16; gx++) {
     for (let gz = -16; gz <= 16; gz++) {
       const cx = gx * PITCH, cz = gz * PITCH;
       const dist = Math.hypot(cx, cz);
       if (dist < 315 || dist > 1750) continue;
       if (inLake(cx, cz)) continue;
+      if (inAvenue(cx, cz)) continue;
       const falloff = 1.0 - Math.min(1, Math.max(0, (dist - 350) / 1500)) * 0.55;
       const nb = 1 + Math.floor(rand() * 2.4);
       for (let i = 0; i < nb; i++) {
@@ -173,10 +182,12 @@ export function createCity() {
           vec3 wc = mix(vec3(0.95, 0.78, 0.55), vec3(0.68, 0.79, 0.95), warmPick);
           float flick = 0.93 + 0.07 * sin(uTime * (0.5 + r1 * 1.4) + r1 * 31.0);
           float bright = 0.45 + 0.9 * hash12(cell * 3.3 + vSeed * 5.0);
-          // 원거리 LOD: 개별 창 → 면 평균 글로우
+          // 원거리 LOD: 개별 창 → 면 평균 글로우 (+화면 픽셀밀도 기반 AA)
           float detail = 1.0 - smoothstep(850.0, 2100.0, vViewZ);
+          float cellPx = fwidth((fc / pitch).x) + fwidth((fc / pitch).y);
+          detail *= smoothstep(0.55, 0.22, cellPx);
           vec3 winEmiss = wc * win * lit * bright * flick;
-          vec3 avgEmiss = wc * ratio * 0.16;
+          vec3 avgEmiss = vec3(0.88, 0.82, 0.70) * ratio * 0.13;
           col += mix(avgEmiss, winEmiss, detail) * 0.85;
           // 저층부 상가 불빛
           float shop = step(vLocal.y, 5.0) * smoothstep(0.1, 0.5, ratio) * detail;
@@ -245,13 +256,13 @@ export function createGround() {
         col *= 0.92 + 0.08 * vnoise(vXZ * 0.02);
         // 광장 (r < 210): 살짝 밝은 석재 + 은은한 포장 패턴
         float plaza = smoothstep(215.0, 185.0, d);
-        vec3 stone = vec3(0.034, 0.040, 0.056);
+        vec3 stone = vec3(0.026, 0.031, 0.045);
         float pave = (smoothstep(0.94, 1.0, fract(vXZ.x / 16.0)) + smoothstep(0.94, 1.0, fract(vXZ.y / 16.0))) * 0.03;
         col = mix(col, stone + pave * uPlazaLit, plaza);
         // 광장 조명 워시
         col += vec3(0.30, 0.26, 0.19) * plaza * uPlazaLit * 0.13 * max(1.0 - d / 260.0, 0.0);
         // 타워 발치 접지 음영 (가짜 AO)
-        col *= 1.0 - 0.4 * smoothstep(160.0, 25.0, d);
+        col *= 1.0 - 0.32 * smoothstep(130.0, 22.0, d);
         // 부지 윤곽 발광 (건설 초기)
         float sd = sdRoundRect(vXZ, vec2(52.0), 14.0);
         float outline = smoothstep(3.2, 0.0, abs(sd));
@@ -304,17 +315,18 @@ export function createLake() {
         // 하늘 반사 기조
         vec3 col = mix(uSkyZenith, uSkyHorizon, 0.35) * 0.55;
         col = mix(col, vec3(0.012, 0.022, 0.038), 0.45);
-        // 잔물결 스파클
-        float n1 = vnoise(vXZ * 0.11 + vec2(uTime * 0.55, uTime * 0.13));
-        float n2 = vnoise(vXZ * 0.23 - vec2(uTime * 0.31, uTime * 0.42));
-        float spark = pow(n1 * n2, 5.0) * 5.0;
-        col += vec3(0.75, 0.85, 1.0) * spark * (0.25 + uTowerLit * 0.75);
+        // 잔물결 스파클 (원거리에서만 은은히)
+        float n1 = vnoise(vXZ * 0.06 + vec2(uTime * 0.4, uTime * 0.1));
+        float n2 = vnoise(vXZ * 0.13 - vec2(uTime * 0.22, uTime * 0.3));
+        float far = smoothstep(320.0, 900.0, vViewZ);
+        float spark = pow(n1 * n2, 6.0) * 1.5 * (0.35 + 0.65 * far);
+        col += vec3(0.75, 0.85, 1.0) * spark * (0.2 + uTowerLit * 0.6);
         // 타워 방향 금빛 리플렉션 시트
         float towardTower = exp(-length(vXZ) / 620.0);
-        col += vec3(0.9, 0.72, 0.4) * towardTower * uTowerLit * (0.10 + 0.10 * n1);
+        col += vec3(0.9, 0.72, 0.4) * towardTower * uTowerLit * (0.05 + 0.05 * n1);
         // 기슭 라인
         float rim = smoothstep(0.985, 1.0, max(abs(vUvL.x - 0.5), abs(vUvL.y - 0.5)) * 2.0);
-        col += vec3(0.9, 0.8, 0.6) * rim * uTowerLit * 0.35;
+        col += vec3(0.9, 0.8, 0.6) * rim * uTowerLit * 0.15;
         col = applyFog(col, vViewZ, uFogColor, uFogDensity);
         gl_FragColor = vec4(col, 1.0);
       }
@@ -362,7 +374,7 @@ export function createTrails() {
         vec3 c = mix(vec3(1.0, 0.92, 0.75), vec3(1.0, 0.32, 0.22), vWarm);
         float endFade = sin(3.14159 * vUvT.x);
         float lat = sin(3.14159 * vUvT.y);
-        vec3 col = c * pulse * endFade * lat * uStr * 2.4;
+        vec3 col = c * pulse * endFade * lat * uStr * 3.2;
         col = applyFog(col, vViewZ, uFogColor, uFogDensity * 0.7);
         gl_FragColor = vec4(col, pulse * endFade * uStr);
       }
@@ -382,7 +394,7 @@ export function createTrails() {
     if (Math.hypot(x, z) < 240) { speeds[i] = 0; continue; }
     dummy.position.set(x, 0.7, z);
     dummy.rotation.set(-Math.PI / 2, 0, alongX ? 0 : Math.PI / 2);
-    dummy.scale.set(len, 3.4, 1);
+    dummy.scale.set(len, 5.2, 1);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
     speeds[i] = (0.25 + rand() * 0.5) * (rand() > 0.5 ? 1 : -1);

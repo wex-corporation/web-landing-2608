@@ -48,9 +48,9 @@ const LOOKS = [
   /*3 잉크빛 밤*/  { zen: C(0x04060c), hor: C(0x101a2e), haze: C(0x16233c), sunC: C(0xbcd4ff), el: -26, az: -2.0, disc: 0, glow: 0.16, stars: 1.0, fogC: C(0x060c18), fogD: 3.3e-4, exp: 0.98, sunI: 0.08, sunL: 0.05, cityLit: 0.6, hemiI: 0.38 },
   /*4 밤·투자*/   { zen: C(0x05070f), hor: C(0x121e33), haze: C(0x1a2a44), sunC: C(0xbcd4ff), el: -26, az: -1.9, disc: 0, glow: 0.18, stars: 0.95, fogC: C(0x070d1a), fogD: 3.2e-4, exp: 1.0, sunI: 0.08, sunL: 0.05, cityLit: 0.62, hemiI: 0.4 },
   /*5 심야→여명*/ { zen: C(0x060a14), hor: C(0x152238), haze: C(0x1d2f4a), sunC: C(0xd8e4ff), el: -18, az: -2.2, disc: 0, glow: 0.2, stars: 0.85, fogC: C(0x081020), fogD: 3.1e-4, exp: 1.0, sunI: 0.1, sunL: 0.06, cityLit: 0.7, hemiI: 0.42 },
-  /*6 여명*/      { zen: C(0x0d1830), hor: C(0x6e4a33), haze: C(0x9c5a36), sunC: C(0xffc27d), el: -4, az: -2.35, disc: 0.15, glow: 0.8, stars: 0.2, fogC: C(0x1a1a2c), fogD: 2.9e-4, exp: 1.02, sunI: 0.5, sunL: 0.3, cityLit: 0.5, hemiI: 0.45 },
-  /*7 일출*/      { zen: C(0x23496e), hor: C(0xd8894a), haze: C(0xf0b46a), sunC: C(0xffd9a0), el: 4, az: -2.3, disc: 1.0, glow: 1.15, stars: 0, fogC: C(0x3a4258), fogD: 2.6e-4, exp: 1.06, sunI: 1.0, sunL: 0.85, cityLit: 0.2, hemiI: 0.6 },
-  /*8 아침*/      { zen: C(0x39679c), hor: C(0xa8bfd8), haze: C(0xe8d2a8), sunC: C(0xfff0d0), el: 10, az: -2.25, disc: 0.9, glow: 0.8, stars: 0, fogC: C(0x5a7590), fogD: 2.4e-4, exp: 1.04, sunI: 0.9, sunL: 1.0, cityLit: 0.08, hemiI: 0.75 },
+  /*6 박명*/      { zen: C(0x0a1224), hor: C(0x3a3040), haze: C(0x5a3c2c), sunC: C(0xffc27d), el: -10, az: -2.35, disc: 0, glow: 0.5, stars: 0.5, fogC: C(0x121424), fogD: 3.0e-4, exp: 1.0, sunI: 0.3, sunL: 0.15, cityLit: 0.6, hemiI: 0.42 },
+  /*7 일출*/      { zen: C(0x1e4066), hor: C(0xd8894a), haze: C(0xf0b46a), sunC: C(0xffd9a0), el: 4, az: -2.3, disc: 0.8, glow: 0.9, stars: 0, fogC: C(0x363e54), fogD: 2.6e-4, exp: 1.03, sunI: 1.0, sunL: 0.85, cityLit: 0.2, hemiI: 0.6 },
+  /*8 아침*/      { zen: C(0x2b527e), hor: C(0x7fa2c2), haze: C(0xd8c090), sunC: C(0xfff0d0), el: 10, az: -2.25, disc: 0.7, glow: 0.5, stars: 0, fogC: C(0x7690a8), fogD: 1.7e-4, exp: 1.0, sunI: 0.9, sunL: 1.0, cityLit: 0.08, hemiI: 0.75 },
 ];
 
 const lookNow = {
@@ -70,7 +70,7 @@ function evalLook(T) {
 const CAM_KEYS = [
   { T: 0.0, p: [680, 240, 1180], t: [0, 175, 0], fov: 44 },
   { T: 0.9, p: [430, 120, 800], t: [0, 120, 0], fov: 47 },
-  { T: 1.15, p: [310, 60, 610], t: [0, 90, 0], fov: 50 },
+  { T: 1.15, p: [305, 78, 605], t: [0, 95, 0], fov: 50 },
   { T: 1.6, p: [-150, 310, 650], t: [0, 250, 0], fov: 48 },
   { T: 2.0, p: [-430, 530, 570], t: [0, 430, 0], fov: 46 },
   { T: 2.5, p: [-700, 430, 920], t: [0, 300, 0], fov: 44 },
@@ -246,7 +246,7 @@ function director(t, dt) {
   state.buildH = T < 1 ? 0 : T >= 2 ? 566 : bp * 566;
   state.frontier = sp(T, 1.16, 1.26) * (1 - sp(T, 1.94, 2.0));
   state.work = state.frontier;
-  state.conAlpha = (T < 1 ? 0 : 1) * (1 - sp(T, 1.94, 2.12));
+  state.conAlpha = (T < 1 ? 0 : 1) * (1 - sp(T, 1.9, 2.02));
   state.sparkRate = REDUCED ? 0 : state.frontier * (state.buildH > 25 && state.buildH < 535 ? 1 : 0);
 
   // ── 서막 홀로그램
@@ -275,23 +275,11 @@ function director(t, dt) {
 
   // ── 투자
   state.invest = sp(T, 4.05, 4.85);
-  screenAnchor(0, -0.7, 320, state.walletPos);
-  screenAnchor(MOBILE ? 0 : 0.42, -0.62, 300, state.earnTarget);
-  state.goldI = sp(T, 4.45, 4.78) * (1 - sp(T, 5.45, 5.95));
-  const tokIn = easeOutCubic(sp(T, 3.52, 3.8));
-  const tokFly = easeInOutSine(sp(T, 4.02, 4.34));
-  state.tokScale = tokIn * (1 - tokFly * 0.98);
-  state.tokAlpha = sat(tokIn * (1 - sp(T, 4.28, 4.4)));
-  if (state.tokScale > 0.001) {
-    const f = tmpA.set(0, 0, -1).applyQuaternion(camera.quaternion);
-    const r = tmpB.set(1, 0, 0).applyQuaternion(camera.quaternion);
-    tmpC.copy(camera.position).addScaledVector(f, 300).addScaledVector(r, MOBILE ? 0 : -85).add(tmpD.set(0, 8, 0));
-    state.tokPos.copy(tmpC).lerp(state.walletPos, tokFly);
-  }
+  state.goldI = sp(T, 4.5, 4.85) * (1 - sp(T, 5.15, 5.55));
 
   // ── 성장/수익
   state.traffic = REDUCED ? 0 : sp(T, 5.05, 5.5) * (1 - sp(T, 6.75, 7.35));
-  state.earnStr = REDUCED ? 0 : sp(T, 6.15, 6.55) * (1 - sp(T, 7.45, 7.95));
+  state.earnStr = REDUCED ? 0 : sp(T, 6.15, 6.55) * (1 - sp(T, 6.95, 7.4));
 
   // ── 룩 적용
   const L = evalLook(T);
@@ -320,7 +308,7 @@ function director(t, dt) {
   sun.color.copy(L.sunC);
   hemi.intensity = L.hemiI * 1.1;
   hemi.color.copy(L.hor).lerp(L.zen, 0.4);
-  city.u.uCityLit.value = L.cityLit * (0.35 + 0.65 * sp(T, 0, 0.4)) + state.traffic * 0.1;
+  city.u.uCityLit.value = L.cityLit * (0.6 + 0.4 * sp(T, 0, 0.35)) + state.traffic * 0.1;
   city.u.uTime.value = t;
   city.u.uHemiSky.value.copy(L.hor).multiplyScalar(0.9);
   ground.u.uPlazaLit.value = Math.max(sp(T, 2.45, 2.85) * 0.6, sp(T, 5.0, 5.45)) * (1 - sp(T, 7.2, 7.9) * 0.5);
@@ -349,6 +337,21 @@ function director(t, dt) {
   camera.lookAt(tmpB);
   const fv = camFov(T);
   if (Math.abs(camera.fov - fv) > 0.01) { camera.fov = fv; camera.updateProjectionMatrix(); }
+  camera.updateMatrixWorld();
+
+  // ── 화면 앵커(지갑/배당 타깃)와 히어로 토큰 — 카메라 갱신 후 계산
+  screenAnchor(0, -0.7, 320, state.walletPos);
+  screenAnchor(MOBILE ? 0 : 0.42, -0.62, 300, state.earnTarget);
+  const tokIn = easeOutCubic(sp(T, 3.52, 3.8));
+  const tokFly = easeInOutSine(sp(T, 4.02, 4.34));
+  state.tokScale = tokIn * (1 - tokFly * 0.98);
+  state.tokAlpha = sat(tokIn * (1 - sp(T, 4.28, 4.4)));
+  if (state.tokScale > 0.001) {
+    const f = tmpA.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    const r = tmpB.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    tmpC.copy(camera.position).addScaledVector(f, 300).addScaledVector(r, MOBILE ? 0 : -85).add(tmpD.set(0, 8, 0));
+    state.tokPos.copy(tmpC).lerp(state.walletPos, tokFly);
+  }
 
   // ── 타워/파티클
   tower.update(state, t, dt);
@@ -385,6 +388,7 @@ function frame() {
     started = true;
     if (loaderBar) loaderBar.style.width = '100%';
     document.fonts.ready.then(() => {
+      tower.refreshToken(); // 폰트 로드 후 토큰 카드 텍스트 선명화
       setTimeout(() => { loader.classList.add('hide'); window.__ready = true; }, 150);
     });
   }
@@ -404,4 +408,12 @@ window.__info = () => ({
   T: +T.toFixed(3), fps: +fps.toFixed(1),
   calls: renderer.info.render.calls, tris: renderer.info.render.triangles,
 });
+window.__probe = () => {
+  const v = state.tokPos.clone().project(camera);
+  return {
+    tok: [state.tokPos.x, state.tokPos.y, state.tokPos.z].map((n) => +n.toFixed(1)),
+    ndc: [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)],
+    scale: +state.tokScale.toFixed(3),
+  };
+};
 frame();

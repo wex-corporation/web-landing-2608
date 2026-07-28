@@ -150,11 +150,14 @@ function buildShellMaterial() {
         vec3 glass = vec3(0.016, 0.026, 0.045);
         vec3 colr = glass + skyRef * (0.16 + 0.55 * fres);
 
-        // 태양 스펙큘러 (세로로 긴 하이라이트)
+        // 태양 스펙큘러 (세로로 긴 하이라이트) + 주간 디퓨즈 (음영 대비)
         vec3 Hv = normalize(normalize(uSunDir) + V);
         float spec = pow(max(dot(N, Hv), 0.0), 320.0);
         float streak = pow(max(dot(normalize(vec3(N.x, 0.0, N.z)), normalize(vec3(uSunDir.x, 0.0, uSunDir.z))), 0.0), 42.0);
         colr += uSunColor * (spec * 3.2 + streak * 0.10) * uSunI;
+        float diff = max(dot(N, normalize(uSunDir)), 0.0);
+        colr += uSunColor * diff * 0.16 * uSunI;
+        colr *= 1.0 - (1.0 - diff) * 0.25 * uSunI * step(0.0, uSunDir.y);
 
         // 멀리언(흰 래커) 리듬
         colr = mix(colr, vec3(0.30, 0.34, 0.40) * (0.25 + 0.75 * fres + uSunI * 0.35), mullion * 0.55);
@@ -191,8 +194,8 @@ function buildShellMaterial() {
           float grid = smoothstep(0.46, 0.5, max(d1, d2));
           vec3 latticeC = mix(vec3(0.55, 0.62, 0.72), vec3(1.0, 0.86, 0.6), uCrownLit * 0.6);
           colr = mix(colr, colr * 0.35, crown * 0.5);
-          colr += latticeC * grid * crown * (0.12 + uCrownLit * 1.8);
-          colr += vec3(1.0, 0.85, 0.6) * crown * uCrownLit * 0.22;
+          colr += latticeC * grid * crown * (0.12 + uCrownLit * 2.6);
+          colr += vec3(1.0, 0.85, 0.6) * crown * uCrownLit * 0.4;
         }
 
         // ── 공사 프런티어 발광 밴드
@@ -205,16 +208,16 @@ function buildShellMaterial() {
         float scan = smoothstep(5.5, 0.0, abs(y - uScanY));
         colr += vec3(0.30, 0.9, 1.0) * scan * uScanI * 3.5;
 
-        // ── 골드 지분 밴드
-        float gold = smoothstep(uGoldW, uGoldW * 0.35, abs(y - uGoldY));
-        colr += vec3(1.0, 0.78, 0.38) * gold * uGoldI * 2.2;
-
         // ── 홀로그램 (고스트/프리뷰)
         float holoGrid = smoothstep(0.92, 1.0, fract(v * FLOORS * 0.5)) + smoothstep(0.94, 1.0, fract(uu * 40.0));
         vec3 holoC = vec3(0.25, 0.85, 1.0);
         float ghost = max(uGhost, uHolo);
         colr = mix(colr, holoC * (0.10 + holoGrid * 0.5 + fres * 0.8), ghost * 0.75);
         colr += holoC * fres * ghost * 0.5;
+
+        // ── 골드 지분 밴드 (고스트 위에도 보이게 마지막에)
+        float gold = smoothstep(uGoldW, uGoldW * 0.35, abs(y - uGoldY));
+        colr += vec3(1.0, 0.78, 0.38) * gold * uGoldI * 0.9;
 
         float alpha = mix(1.0, 0.15 + fres * 0.45, ghost);
         if (crown > 0.5) alpha = min(alpha, 0.9);
@@ -306,7 +309,7 @@ function buildPanels() {
       attribute vec3 aPos; attribute vec4 aQuat; attribute vec2 aScale; attribute float aSeed; attribute vec3 aRing;
       uniform float uShatter, uInvest, uRingRot, uTime, uFade;
       uniform vec3 uWalletPos;
-      varying vec2 vUvP; varying float vAlpha; varying float vSeed;
+      varying vec2 vUvP; varying float vAlpha; varying float vSeed; varying float vInv;
       vec3 qrot(vec4 q, vec3 v){ return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v); }
       float easeIO(float t){ return t < 0.5 ? 4.0*t*t*t : 1.0 - pow(-2.0*t + 2.0, 3.0) / 2.0; }
       void main(){
@@ -329,7 +332,8 @@ function buildPanels() {
         vec3 rn = normalize(vec3(rc.x, 0.0, rc.z));
         vec3 rup = vec3(0.0, 1.0, 0.0);
         vec3 rt = normalize(cross(rup, rn));
-        float sc = 0.95;
+        float selPre = step(0.84, aSeed);
+        float sc = mix(0.95, 1.3, selPre);
         vec3 ring = rc + rt * rp.x * aScale.x * sc + rup * rp.y * aScale.y * sc;
 
         vec3 p = mix(surface, ring, e);
@@ -337,8 +341,9 @@ function buildPanels() {
         p += rn * sin(3.14159 * e) * 16.0;
 
         // 투자 스트림: 일부 조각이 지갑으로
-        float sel = step(0.84, aSeed);
+        float sel = selPre;
         float inv = clamp((uInvest * 1.7 - fract(aSeed * 7.31) * 0.6) / 0.5, 0.0, 1.0) * sel;
+        vInv = max(inv, sel * smoothstep(0.01, 0.2, uInvest) * 0.6);
         float ei = inv * inv;
         vec3 ctrl = mix(ring, uWalletPos, 0.35) + vec3(0.0, 90.0, 0.0);
         vec3 b1 = mix(ring, ctrl, ei);
@@ -356,7 +361,7 @@ function buildPanels() {
       }
     `,
     fragmentShader: /* glsl */`
-      varying vec2 vUvP; varying float vAlpha; varying float vSeed;
+      varying vec2 vUvP; varying float vAlpha; varying float vSeed; varying float vInv;
       uniform float uEdge, uTime;
       void main(){
         if (vAlpha < 0.004) discard;
@@ -365,7 +370,9 @@ function buildPanels() {
         float flick = 0.8 + 0.2 * sin(uTime * (2.0 + vSeed * 5.0) + vSeed * 47.0);
         vec3 face = vec3(0.05, 0.16, 0.22) * 0.22;
         vec3 edgeC = mix(vec3(0.25, 0.9, 1.0), vec3(1.0, 0.78, 0.4), step(0.93, vSeed));
-        vec3 col = face * (0.4 + uEdge) + edgeC * edge * (0.9 + uEdge * 1.0) * flick;
+        edgeC = mix(edgeC, vec3(1.0, 0.8, 0.42), vInv); // 내 조각은 골드
+        face = mix(face, vec3(0.2, 0.15, 0.05), vInv);
+        vec3 col = face * (0.4 + uEdge) + edgeC * edge * (0.9 + uEdge * 1.0 + vInv * 0.8) * flick;
         gl_FragColor = vec4(col * vAlpha * 0.85, vAlpha);
       }
     `,
@@ -380,7 +387,16 @@ function buildPanels() {
 function makeTokenTexture() {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 704;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const redraw = () => { drawTokenFace(c); tex.needsUpdate = true; };
+  redraw();
+  return { tex, redraw };
+}
+function drawTokenFace(c) {
   const g = c.getContext('2d');
+  g.clearRect(0, 0, 512, 704);
   g.fillStyle = '#08131f'; g.fillRect(0, 0, 512, 704);
   // 프레임
   g.strokeStyle = 'rgba(94,230,255,0.9)'; g.lineWidth = 6;
@@ -413,10 +429,6 @@ function makeTokenTexture() {
   g.font = '400 24px Pretendard, sans-serif';
   g.fillStyle = 'rgba(120,160,190,0.8)';
   g.fillText('WBL · SEOUL LANDMARK No.0001', 256, 646);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  return tex;
 }
 
 function buildHeroToken() {
@@ -426,8 +438,8 @@ function buildHeroToken() {
     new THREE.BoxGeometry(W, Hh, D),
     new THREE.MeshStandardMaterial({ color: 0x0a1626, metalness: 0.7, roughness: 0.3, transparent: true })
   );
-  const tex = makeTokenTexture();
-  const faceMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false });
+  const tokenTex = makeTokenTexture();
+  const faceMat = new THREE.MeshBasicMaterial({ map: tokenTex.tex, transparent: true, toneMapped: false });
   const face = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.94, Hh * 0.94), faceMat);
   face.position.z = D / 2 + 0.15;
   const face2 = face.clone(); face2.rotation.y = Math.PI; face2.position.z = -D / 2 - 0.15;
@@ -437,12 +449,12 @@ function buildHeroToken() {
   );
   group.add(body, face, face2, edges);
   group.visible = false;
-  return { group, mats: [body.material, faceMat, edges.material] };
+  return { group, mats: [body.material, faceMat, edges.material], redrawFace: tokenTex.redraw };
 }
 
 // ---------------------------------------------------------------- 코어 + 크레인
 function buildCore() {
-  const sec = { a: 13, b: 10.5, n: 5 };
+  const sec = { a: 9.2, b: 7.4, n: 5 };
   const pts = [];
   const SEG = 40;
   for (let i = 0; i <= SEG; i++) {
@@ -453,11 +465,11 @@ function buildCore() {
   const shape = new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x, p.y)));
   const geo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, steps: 1 });
   geo.rotateX(-Math.PI / 2); // z→y 위로
-  const mat = new THREE.MeshStandardMaterial({ color: 0x8a919d, roughness: 0.92, metalness: 0.05, emissive: 0x171a20, emissiveIntensity: 1.0 });
+  const mat = new THREE.MeshStandardMaterial({ color: 0x9aa2ae, roughness: 0.92, metalness: 0.05, emissive: 0x23272f, emissiveIntensity: 1.2 });
   const mesh = new THREE.Mesh(geo, mat);
   // 슬립폼 플랫폼
   const slip = new THREE.Mesh(
-    new THREE.CylinderGeometry(16.5, 16.5, 3.2, 28),
+    new THREE.CylinderGeometry(11.5, 11.5, 3.2, 28),
     new THREE.MeshStandardMaterial({ color: 0xc06a28, roughness: 0.8, emissive: 0xcc5522, emissiveIntensity: 0.9, transparent: true })
   );
   const g = new THREE.Group();
@@ -529,8 +541,8 @@ export function createTower() {
 
   // 기초 슬래브
   const slab = new THREE.Mesh(
-    new THREE.BoxGeometry(106, 7, 106),
-    new THREE.MeshStandardMaterial({ color: 0x5b616c, roughness: 0.95, transparent: true })
+    new THREE.BoxGeometry(94, 7, 94),
+    new THREE.MeshStandardMaterial({ color: 0x3c414c, roughness: 0.95, transparent: true, emissive: 0x0c0e12, emissiveIntensity: 1.0 })
   );
   slab.position.y = -8;
   group.add(slab);
@@ -538,7 +550,7 @@ export function createTower() {
   const glowTex = makeGlowTexture();
   // 타워 정상 항공등 + 완공 비컨 필라
   const aviMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xff4030, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
-  const avi = new THREE.Sprite(aviMat); avi.scale.setScalar(16); avi.position.y = H + 4;
+  const avi = new THREE.Sprite(aviMat); avi.scale.setScalar(10); avi.position.y = H - 4;
   const beamMat = new THREE.MeshBasicMaterial({ color: 0xbfeaff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 6.5, 420, 16, 1, true), beamMat);
   beam.position.y = H + 200;
@@ -548,6 +560,7 @@ export function createTower() {
 
   const api = {
     group, shellU, panelsU: panels.u,
+    refreshToken: token.redrawFace,
     update(state, t, dt) {
       const su = shellU;
       su.uTime.value = t;
@@ -593,7 +606,7 @@ export function createTower() {
         coreObj.slip.position.y = coreH + 1;
         coreObj.slip.material.opacity = state.conAlpha;
         const place = (cr, sgn, phase) => {
-          cr.group.position.set(16 * sgn, coreH + 2, -12 * sgn);
+          cr.group.position.set(11 * sgn, coreH + 2, -8 * sgn);
           cr.group.rotation.y = t * 0.12 * sgn + phase;
           cr.trolley.position.x = 18 + 14 * (0.5 + 0.5 * Math.sin(t * 0.3 + phase));
           cr.hook.position.x = cr.trolley.position.x;

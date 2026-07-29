@@ -40,7 +40,7 @@ export function createBackdrop() {
         vec3 col = mix(uHor, uZen, pow(clamp(el, 0.0, 1.0), 0.42));
         col = mix(col, uZen * 0.6, smoothstep(0.0, -0.3, el));
         // 지평 바이올렛 광층
-        col += uGlow * exp(-abs(el + 0.05) * 8.5) * uGlowI;
+        col += uGlow * exp(-abs(el + 0.1) * 10.0) * uGlowI;
         // 미세 결
         float n = vnoise(vec2(atan(d.z, d.x) * 5.0, el * 11.0) + uTime * 0.004);
         col *= 0.96 + 0.08 * n;
@@ -99,14 +99,14 @@ export function createFloor() {
     clipBias: 0.003,
     textureWidth: 1024,
     textureHeight: 1024,
-    color: 0x151a26,
+    color: 0x3a4456,
   });
   mirror.rotation.x = -Math.PI / 2;
   mirror.position.y = 0;
   group.add(mirror);
 
   // 거울 위 감쇠 오버레이: 중심은 살짝 비치고 멀어질수록 어둠에 잠김
-  const u = { uFade: { value: 0.62 }, uTint: { value: new THREE.Color(0x05060c) } };
+  const u = { uFade: { value: 0.62 }, uTint: { value: new THREE.Color(0x0a0c18) } };
   const overlay = new THREE.Mesh(
     new THREE.CircleGeometry(3200, 72),
     new THREE.ShaderMaterial({
@@ -122,7 +122,7 @@ export function createFloor() {
         uniform float uFade; uniform vec3 uTint;
         void main(){
           float d = length(vP);
-          float a = mix(uFade, 1.0, smoothstep(260.0, 2500.0, d));
+          float a = mix(uFade, 0.97, smoothstep(260.0, 2500.0, d));
           gl_FragColor = vec4(uTint, a);
         }
       `,
@@ -175,7 +175,7 @@ export function createDust() {
         p.z += cos(uTime * (0.07 + aSeed * 0.09) + aSeed * 11.0) * 14.0;
         vec4 mv = viewMatrix * vec4(p, 1.0);
         vA = 0.5 + 0.5 * sin(uTime * (0.4 + aSeed) + aSeed * 50.0);
-        gl_PointSize = (1.4 + aSeed * 2.4) * (600.0 / max(-mv.z, 1.0));
+        gl_PointSize = min((1.4 + aSeed * 2.4) * (600.0 / max(-mv.z, 1.0)), 20.0);
         gl_Position = projectionMatrix * mv;
       }
     `,

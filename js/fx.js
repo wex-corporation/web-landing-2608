@@ -40,22 +40,34 @@ export function createSparks() {
   let emitTimer = 0;
   let cursor = 0;
 
-  function update(dt, t, rate, buildH) {
+  function update(dt, t, rate, buildHOrEmitter) {
     emitTimer -= dt;
     if (emitTimer < 0) { emitters = [rand() * 6.283, rand() * 6.283, rand() * 6.283]; emitTimer = 1.3; }
-    if (rate > 0.01 && buildH > 20 && buildH < H - 8) {
+    const isFn = typeof buildHOrEmitter === 'function';
+    const buildH = isFn ? 0 : buildHOrEmitter;
+    if (rate > 0.01 && (isFn || (buildH > 20 && buildH < H - 8))) {
       const spawnN = Math.floor(rate * 8 + rand() * 3);
-      const tSec = towerSection(Math.min(buildH / H, 0.95));
+      const tSec = isFn ? null : towerSection(Math.min(buildH / H, 0.95));
       for (let s = 0; s < spawnN; s++) {
-        const em = emitters[Math.floor(rand() * emitters.length)];
-        const th = em + (rand() - 0.5) * 0.25;
-        const [x, z] = sectionPoint(th, tSec);
         const i = cursor; cursor = (cursor + 1) % N;
-        pos[i * 3] = x * 1.02; pos[i * 3 + 1] = buildH - 2 - rand() * 5; pos[i * 3 + 2] = z * 1.02;
-        const sp = 6 + rand() * 22;
-        vel[i * 3] = (x / 40) * sp * (0.4 + rand());
-        vel[i * 3 + 1] = 4 + rand() * 14;
-        vel[i * 3 + 2] = (z / 40) * sp * (0.4 + rand());
+        if (isFn) {
+          const [px, py, pz] = buildHOrEmitter();
+          pos[i * 3] = px; pos[i * 3 + 1] = py; pos[i * 3 + 2] = pz;
+          const sp = 8 + rand() * 20;
+          const dir = pz >= 0 ? 1 : -1;
+          vel[i * 3] = (rand() - 0.7) * sp;
+          vel[i * 3 + 1] = 4 + rand() * 14;
+          vel[i * 3 + 2] = dir * sp * (0.3 + rand() * 0.7);
+        } else {
+          const em = emitters[Math.floor(rand() * emitters.length)];
+          const th = em + (rand() - 0.5) * 0.25;
+          const [x, z] = sectionPoint(th, tSec);
+          pos[i * 3] = x * 1.02; pos[i * 3 + 1] = buildH - 2 - rand() * 5; pos[i * 3 + 2] = z * 1.02;
+          const sp = 6 + rand() * 22;
+          vel[i * 3] = (x / 40) * sp * (0.4 + rand());
+          vel[i * 3 + 1] = 4 + rand() * 14;
+          vel[i * 3 + 2] = (z / 40) * sp * (0.4 + rand());
+        }
         life[i] = 0.5 + rand() * 0.9;
       }
     }

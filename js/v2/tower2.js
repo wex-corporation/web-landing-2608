@@ -382,7 +382,7 @@ function drawTokenFace(c) {
   g.fillStyle = '#7c4dff';
   const blocks = [[0, 0], [4, 0], [2, 0.55], [1, 1.1], [3, 1.1]];
   blocks.forEach(([cx, cy], bi) => {
-    g.fillStyle = ['#8a5cff', '#8a5cff', '#7c4dff', '#6d2ef5', '#6d2ef5'][bi];
+    g.fillStyle = ['#9d7bff', '#9d7bff', '#8f66ff', '#8a5cff', '#8a5cff'][bi];
     g.fillRect(mx + cx * P, my + cy * U, U, U);
   });
   g.fillStyle = '#F2F0FA';

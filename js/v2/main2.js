@@ -32,7 +32,7 @@ const dust = createDust();
 const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 300);
 const fins = createFins(envMap);
 const hull = createHull(envMap);
-hull.mesh.material.clippingPlanes = [clipPlane];
+hull.clipMats.forEach((m) => (m.clippingPlanes = [clipPlane]));
 const ribbon = createRibbon(envMap);
 ribbon.mesh.material.clippingPlanes = [clipPlane];
 const interior = createInterior(envMap);
@@ -56,14 +56,14 @@ dust.mesh.layers.set(1);
 camera.layers.enable(1);
 scene.add(
   backdrop.mesh, floor.group, dust.mesh,
-  interior.group, hull.mesh, fins.mesh, ribbon.mesh, medallion.group,
+  hull.wall, hull.innerFloor, interior.group, hull.mesh, fins.mesh, ribbon.mesh, medallion.group,
   fractions.mesh, token.group, sparks.mesh, printBar
 );
 
 // 스튜디오 라이트
 const key = new THREE.DirectionalLight(0xdfe8ff, 1.15);
 key.position.set(-700, 600, 700);
-const rim = new THREE.DirectionalLight(0x8a5cff, 1.05);
+const rim = new THREE.DirectionalLight(0x8a5cff, 0.8);
 rim.position.set(500, 260, -700);
 const warm = new THREE.DirectionalLight(0xffc27d, 0.95);
 warm.position.set(600, 180, 500);
@@ -113,9 +113,9 @@ function crScalar(keys, T) {
   return 0.5 * ((2 * k1) + (-k0 + k2) * t + (2 * k0 - 5 * k1 + 4 * k2 - k3) * t2 + (-k0 + 3 * k1 - 3 * k2 + k3) * t3);
 }
 // 전면 = +z (az ≈ π/2). CTA까지 한 바퀴 돌아 전면으로 복귀
-const K_AZ = [[0, 0.95], [1, 1.3], [1.5, 1.52], [2, 1.85], [2.5, 2.3], [3, 2.9], [3.55, 3.5], [4, 5.0], [4.5, 6.4], [5, 7.35]];
-const K_DIST = [[0, 1000], [1, 520], [1.5, 470], [2, 480], [2.5, 780], [3, 880], [3.55, 900], [4, 560], [5, 880]];
-const K_H = [[0, 180], [1, 55], [1.5, 95], [2, 110], [2.5, 230], [3, 260], [3.55, 260], [4, 150], [5, 165]];
+const K_AZ = [[0, 0.95], [1, 1.3], [1.5, 1.52], [2, 1.8], [2.5, 2.05], [3, 2.5], [3.55, 3.3], [4, 5.2], [4.5, 6.9], [5, 7.65]];
+const K_DIST = [[0, 1000], [1, 520], [1.5, 470], [2, 480], [2.5, 780], [3, 880], [3.55, 900], [4, 560], [5, 1000]];
+const K_H = [[0, 180], [1, 55], [1.5, 95], [2, 110], [2.5, 230], [3, 260], [3.55, 260], [4, 150], [5, 190]];
 const K_TY = [[0, 88], [1, 55], [1.5, 70], [2, 82], [2.5, 85], [3, 92], [3.55, 96], [4, 85], [5, 78]];
 const K_TX = [[0, 0], [1, -150], [1.4, -60], [1.8, 110], [2, 30], [3, 0], [4, 0], [5, -20]];
 const K_FOV = [[0, 40], [1, 46], [2, 44], [3, 42], [3.55, 44], [4, 44], [5, 42]];
@@ -229,7 +229,8 @@ function director(t, dt) {
 
   // 카메라
   const az = crScalar(K_AZ, T);
-  const dist = crScalar(K_DIST, T);
+  const aspectScale = camera.aspect < 1.2 ? 1.28 - camera.aspect * 0.1 : 1;
+  const dist = crScalar(K_DIST, T) * Math.max(aspectScale, 1);
   let hgt = crScalar(K_H, T);
   let tx = crScalar(K_TX, T);
   const ty = crScalar(K_TY, T);
@@ -280,6 +281,8 @@ function director(t, dt) {
   hull.u.uScanX.value = building ? state.buildX : state.scanX;
   hull.u.uScanI.value = Math.max(state.scanI, state.frontier * 0.5);
   hull.mesh.visible = state.buildX > -255 || state.holo > 0.005;
+  hull.wall.visible = hull.innerFloor.visible = state.buildX > -255 && state.holo < 0.4;
+  hull.ghostMats.forEach((m) => (m.opacity = 1 - state.ghost * 0.85));
   hull.mesh.material.opacity = 0.44 + state.holo * 0.18;
   ribbon.u.uBuild.value = revealX;
   ribbon.mat.opacity = (1 - state.ghost * 0.75) * (state.holo > 0.005 ? 0.55 : 1);

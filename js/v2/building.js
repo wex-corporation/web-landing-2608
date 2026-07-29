@@ -52,11 +52,11 @@ export function buildOutline(N = 320) {
 
 // 전면 유리 개구부: 루버 하단 높이 (기본 3 = 지면 근처까지)
 function finBottomAt(x, nz) {
-  if (nz < 0.35) return 3; // 후면/캡은 풀 루버
+  if (nz < 0.35) return 16; // 후면/캡도 1층 유리 링 위로
   const h = roofAt(x);
   const o1 = smoothstep(-62, -38, x) * (1 - smoothstep(78, 102, x));   // 중앙 대개구부
   const o2 = smoothstep(84, 108, x) * (1 - smoothstep(182, 208, x));   // 우측 저개구부
-  let b = 3;
+  let b = 16;
   b = lerp(b, h - 26, o1);
   b = lerp(b, 52, o2 * (1 - o1));
   return b;
@@ -82,7 +82,7 @@ export function createFins(envMap) {
       nz: lerp(outline[i0].nz, outline[i1].nz, t),
     };
     const bot = finBottomAt(p.x, p.nz);
-    const top = roofAt(p.x) - 3;
+    const top = roofAt(p.x) - 1;
     if (top - bot < 6) continue;
     const h = top - bot;
     const yaw = Math.atan2(p.nx, p.nz);
@@ -167,7 +167,7 @@ export function createHull(envMap) {
     color: 0x2a2016, metalness: 0.1, roughness: 0.08,
     clearcoat: 1.0, clearcoatRoughness: 0.2,
     envMap, envMapIntensity: 1.3,
-    transparent: true, opacity: 0.44,
+    transparent: true, opacity: 0.38,
     side: THREE.DoubleSide, depthWrite: false,
   });
   mat.defines = { ...(mat.defines || {}), USE_UV: '' };
@@ -216,7 +216,43 @@ export function createHull(envMap) {
   mat.customProgramCacheKey = () => 'weblock-hull-v3';
   const mesh = new THREE.Mesh(geo, mat);
   mesh.renderOrder = 4;
-  return { mesh, u, outline };
+
+  // 내벽: 유리 너머로 보이는 따뜻한 실내 벽 (관통 방지)
+  const wallVerts = new Float32Array((S + 1) * 2 * 3);
+  const wallIdx = [];
+  for (let si = 0; si <= S; si++) {
+    const o = outline[si % S];
+    const ix = o.x - o.nx * 15, iz = o.z - o.nz * 15;
+    const top = roofAt(o.x) - 6;
+    wallVerts[si * 6] = ix; wallVerts[si * 6 + 1] = 0.5; wallVerts[si * 6 + 2] = iz;
+    wallVerts[si * 6 + 3] = ix; wallVerts[si * 6 + 4] = top; wallVerts[si * 6 + 5] = iz;
+  }
+  for (let si = 0; si < S; si++) {
+    const a = si * 2, b2 = a + 1, c2 = a + 2, d2 = a + 3;
+    wallIdx.push(a, c2, b2, b2, c2, d2);
+  }
+  const wallGeo = new THREE.BufferGeometry();
+  wallGeo.setAttribute('position', new THREE.BufferAttribute(wallVerts, 3));
+  wallGeo.setIndex(wallIdx);
+  wallGeo.computeVertexNormals();
+  const wallMat = new THREE.MeshStandardMaterial({
+    color: 0x2e2014, roughness: 0.9, metalness: 0.05,
+    emissive: 0x3a2008, emissiveIntensity: 1.5,
+    side: THREE.BackSide, transparent: true,
+  });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.renderOrder = 1;
+
+  // 실내 바닥 (웜 우드)
+  const floorShape = new THREE.Shape(outline.map((o) => new THREE.Vector2(o.x - o.nx * 8, o.z - o.nz * 8)));
+  const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 1.4, bevelEnabled: false });
+  floorGeo.rotateX(-Math.PI / 2);
+  const floorMat = new THREE.MeshStandardMaterial({ color: 0x3a2818, roughness: 0.85, emissive: 0x180d05, emissiveIntensity: 1, transparent: true });
+  const innerFloor = new THREE.Mesh(floorGeo, floorMat);
+  innerFloor.position.y = 2.2;
+  innerFloor.renderOrder = 1;
+
+  return { mesh, u, outline, wall, innerFloor, clipMats: [mat, wallMat, floorMat], ghostMats: [wallMat, floorMat] };
 }
 
 // ---------------------------------------------------------------- 루프 리본 (브론즈 밴드)
@@ -262,7 +298,7 @@ export function createInterior(envMap) {
     const shape = new THREE.Shape(pts.map((p) => new THREE.Vector2(p.x - p.x * 0.04, p.y * 0.86)));
     const g = new THREE.ExtrudeGeometry(shape, { depth: 3, bevelEnabled: false });
     g.rotateX(-Math.PI / 2);
-    const mesh = new THREE.Mesh(g, M(new THREE.MeshStandardMaterial({ color: 0x3a2c1c, roughness: 0.9, emissive: 0x0e0803, emissiveIntensity: 1 })));
+    const mesh = new THREE.Mesh(g, M(new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.85, emissive: 0x1e1206, emissiveIntensity: 1 })));
     mesh.position.y = y;
     group.add(mesh);
   };
@@ -311,16 +347,25 @@ export function createInterior(envMap) {
   for (let i = 0; i < 38; i++) {
     const sm = M(new THREE.SpriteMaterial({ map: lampTex, color: 0xffdcb0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     const sp = new THREE.Sprite(sm);
-    sp.scale.setScalar(15 + rand() * 20);
-    sp.position.set(-150 + rand() * 340, 8 + rand() * 76, (rand() - 0.5) * 84);
+    sp.scale.setScalar(14 + rand() * 16);
+    { const lx = -150 + rand() * 340; const ly = i < 12 ? 5 + rand() * 8 : 8 + rand() * 76; sp.position.set(lx, ly, (rand() - 0.5) * depthAt(lx) * 0.8); }
     group.add(sp);
+  }
+  // 1층 가구/카운터 매스
+  const furnMat = M(new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 0.8, emissive: 0x241304, emissiveIntensity: 1 }));
+  for (let i = 0; i < 14; i++) {
+    const w = 14 + rand() * 22, d = 8 + rand() * 10, h2 = 5 + rand() * 6;
+    const f = new THREE.Mesh(new THREE.BoxGeometry(w, h2, d), furnMat);
+    { const fx = -170 + rand() * 380; f.position.set(fx, 2.5 + h2 / 2, (rand() - 0.5) * depthAt(fx) * 0.7); }
+    f.rotation.y = rand() * Math.PI;
+    group.add(f);
   }
   // 실내 전체를 채우는 대형 웜 글로우
   for (let i = 0; i < 4; i++) {
-    const sm = M(new THREE.SpriteMaterial({ map: lampTex, color: 0xffc890, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const sm = M(new THREE.SpriteMaterial({ map: lampTex, color: 0xffc890, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
     const sp = new THREE.Sprite(sm);
     sp.scale.set(120, 80, 1);
-    sp.position.set(-120 + i * 100, 44, 0);
+    sp.position.set(-120 + i * 95, 42, 0);
     group.add(sp);
   }
   function update(intensity) {

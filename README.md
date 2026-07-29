@@ -58,6 +58,17 @@ weblock-landing/
 - `prefers-reduced-motion` 대응(즉시 시킹), 시맨틱 섹션, OG 메타
 - 모바일 레이아웃 대응(≤820px)
 
+## 배포 (Vercel)
+
+저장소 루트에 `vercel.json`이 있어 별도 빌드 설정 없이 이 폴더가 그대로 서빙된다.
+
+1. [vercel.com/new](https://vercel.com/new) → GitHub로 로그인 → `felix-seoul/forclaude` Import
+2. 설정은 전부 기본값 그대로 **Deploy** (Framework: Other)
+3. 최초 배포는 기본 브랜치(main) 기준이라 비어 보일 수 있음 →
+   **Settings → Git → Production Branch**를 `claude/web-landing-37lbds`로 변경 후
+   **Deployments 탭 → ⋯ → Redeploy** 하면 프로덕션 URL에 랜딩이 뜬다.
+4. 이후 이 브랜치에 푸시할 때마다 자동 재배포.
+
 ## 디버그
 
 - `?snap` : 스크롤 스무딩 없이 즉시 시킹 + `window.__seek(T)`, `window.__info()`

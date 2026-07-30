@@ -53,6 +53,7 @@ const barTexC = document.createElement('canvas'); barTexC.width = 64; barTexC.he
 const barMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(barTexC), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
 const printBar = new THREE.Sprite(barMat);
 dust.mesh.layers.set(1);
+interior.group.traverse((o) => o.layers.set(1)); // 실내 광원은 거울 반사에서 제외 (반사 왜곡 방지)
 camera.layers.enable(1);
 scene.add(
   backdrop.mesh, floor.group, dust.mesh,
@@ -65,24 +66,24 @@ const key = new THREE.DirectionalLight(0xdfe8ff, 1.15);
 key.position.set(-700, 600, 700);
 const rim = new THREE.DirectionalLight(0x8a5cff, 0.8);
 rim.position.set(500, 260, -700);
-const warm = new THREE.DirectionalLight(0xffc27d, 0.95);
-warm.position.set(600, 180, 500);
+const warm = new THREE.DirectionalLight(0xffb87a, 1.0);
+warm.position.set(250, 300, 750);
 const fill = new THREE.HemisphereLight(0x2a3050, 0x07060a, 0.7);
 scene.add(key, rim, warm, fill);
 
 const post = createComposer(renderer, scene, camera);
 post.bloom.strength = 0.42;
-post.bloom.threshold = 0.86;
+post.bloom.threshold = 0.9;
 
 // ---------------------------------------------------------------- 무드
 const C = (h) => new THREE.Color(h);
 const MOODS = [
   { zen: C(0x020208), hor: C(0x140d2a), glow: C(0x2a1758), gI: 0.55, stars: 0.55, exp: 1.0, mirror: 0.6 },
   { zen: C(0x020207), hor: C(0x100a20), glow: C(0x23124a), gI: 0.4, stars: 0.7, exp: 0.98, mirror: 0.64 },
-  { zen: C(0x030310), hor: C(0x1c1128), glow: C(0x4a2450), gI: 0.68, stars: 0.45, exp: 1.03, mirror: 0.22 },
+  { zen: C(0x0a0716), hor: C(0x35182a), glow: C(0x9a4e26), gI: 0.95, stars: 0.4, exp: 1.04, mirror: 0.22 },
   { zen: C(0x020209), hor: C(0x0e0a22), glow: C(0x33176a), gI: 0.8, stars: 0.8, exp: 1.0, mirror: 0.5 },
-  { zen: C(0x050414), hor: C(0x201435), glow: C(0x4c2a7e), gI: 0.82, stars: 0.4, exp: 1.04, mirror: 0.26 },
-  { zen: C(0x050414), hor: C(0x201435), glow: C(0x4c2a7e), gI: 0.82, stars: 0.4, exp: 1.04, mirror: 0.26 },
+  { zen: C(0x050414), hor: C(0x201435), glow: C(0x4c2a7e), gI: 0.9, stars: 0.4, exp: 1.04, mirror: 0.26 },
+  { zen: C(0x0a0718), hor: C(0x30182c), glow: C(0x8a4828), gI: 0.9, stars: 0.4, exp: 1.04, mirror: 0.26 },
 ];
 const moodNow = { zen: new THREE.Color(), hor: new THREE.Color(), glow: new THREE.Color(), gI: 0, stars: 0, exp: 1, mirror: 0.6 };
 function evalMood(T) {
@@ -114,9 +115,9 @@ function crScalar(keys, T) {
 }
 // 전면 = +z (az ≈ π/2). CTA까지 한 바퀴 돌아 전면으로 복귀
 const K_AZ = [[0, 0.95], [1, 1.3], [1.5, 1.52], [2, 1.8], [2.5, 2.05], [3, 2.5], [3.55, 3.3], [4, 5.2], [4.5, 6.9], [5, 7.65]];
-const K_DIST = [[0, 1000], [1, 520], [1.5, 470], [2, 480], [2.5, 780], [3, 880], [3.55, 900], [4, 560], [5, 1000]];
-const K_H = [[0, 180], [1, 55], [1.5, 95], [2, 110], [2.5, 230], [3, 260], [3.55, 260], [4, 150], [5, 190]];
-const K_TY = [[0, 88], [1, 55], [1.5, 70], [2, 82], [2.5, 85], [3, 92], [3.55, 96], [4, 85], [5, 78]];
+const K_DIST = [[0, 1000], [1, 520], [1.5, 470], [2, 480], [2.5, 780], [3, 880], [3.55, 900], [4, 620], [5, 1150]];
+const K_H = [[0, 150], [1, 50], [1.5, 80], [2, 88], [2.5, 140], [3, 185], [3.55, 230], [4, 120], [5, 128]];
+const K_TY = [[0, 92], [1, 55], [1.5, 72], [2, 84], [2.5, 88], [3, 95], [3.55, 98], [4, 88], [5, 84]];
 const K_TX = [[0, 0], [1, -150], [1.4, -60], [1.8, 110], [2, 30], [3, 0], [4, 0], [5, -20]];
 const K_FOV = [[0, 40], [1, 46], [2, 44], [3, 42], [3.55, 44], [4, 44], [5, 42]];
 

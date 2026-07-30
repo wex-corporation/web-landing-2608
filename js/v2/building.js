@@ -3,16 +3,15 @@ import * as THREE from 'three';
 import { clamp, lerp, sat, smoothstep, rng } from '../util.js';
 
 // 전체 치수 (추상 단위): 길이 470, 최고 높이 ~190, 깊이 ~150
-export const LEN = 470;
+export const LEN = 390;
 export const HMAX = 192;
 export const DONE_X = 300; // 완공 시 uBuild(x 스윕) 값
 
 // ---------------------------------------------------------------- 평면 아웃라인/루프라인
-export function depthAt(x) { return lerp(76, 56, smoothstep(-110, 210, x)); }
+export function depthAt(x) { return lerp(74, 58, smoothstep(-90, 170, x)); }
 export function roofAt(x) {
-  let h = lerp(186, 88, smoothstep(-125, 155, x) ** 1.15);
-  h += 10 * smoothstep(165, 235, x);            // 우측 끝 살짝 들림
-  h += 6 * smoothstep(-235, -195, -Math.abs(x + 200)); // 프라우 크라운
+  let h = lerp(182, 96, smoothstep(-105, 120, x) ** 1.15);
+  h += 9 * smoothstep(120, 190, x);             // 우측 끝 테라스 들림
   return h;
 }
 // 닫힌 아웃라인 샘플: [{x,z,nx,nz,s}] (s=아크길이 0..1)
@@ -52,20 +51,19 @@ export function buildOutline(N = 320) {
 
 // 전면 유리 개구부: 루버 하단 높이 (기본 3 = 지면 근처까지)
 function finBottomAt(x, nz) {
-  if (nz < 0.35) return 16; // 후면/캡도 1층 유리 링 위로
+  if (nz < 0.35) return 14; // 후면/캡은 풀 루버 (1층 링 위)
   const h = roofAt(x);
-  const o1 = smoothstep(-62, -38, x) * (1 - smoothstep(78, 102, x));   // 중앙 대개구부
-  const o2 = smoothstep(84, 108, x) * (1 - smoothstep(182, 208, x));   // 우측 저개구부
-  let b = 16;
-  b = lerp(b, h - 26, o1);
-  b = lerp(b, 52, o2 * (1 - o1));
+  // 전면: 프라우(x<-95)만 풀 루버, 그 오른쪽은 통유리 + 지붕 아래 루버 밴드
+  const glass = smoothstep(-100, -78, x) * (1 - smoothstep(168, 192, x));
+  let b = 14;
+  b = lerp(b, h - 21, glass);
   return b;
 }
 
 // ---------------------------------------------------------------- 루버 핀 (CPU 인스턴스 애니메이션)
 export function createFins(envMap) {
   const outline = buildOutline(360);
-  const SPACING = 5.4;
+  const SPACING = 3.6;
   const count = Math.floor(outline.total / SPACING);
   const rand = rng(20260729);
   const fins = [];
@@ -94,9 +92,9 @@ export function createFins(envMap) {
       scatZ: p.z + p.nz * (120 + rand() * 240) + (rand() - 0.5) * 160,
     });
   }
-  const geo = new THREE.BoxGeometry(3.1, 1, 7);
+  const geo = new THREE.BoxGeometry(2.1, 1, 6);
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x5f452a, metalness: 0.42, roughness: 0.46,
+    color: 0x71553a, metalness: 0.4, roughness: 0.42,
     envMap, envMapIntensity: 1.15, transparent: true,
     emissive: 0x1a1108, emissiveIntensity: 1.0,
   });
@@ -237,7 +235,7 @@ export function createHull(envMap) {
   wallGeo.computeVertexNormals();
   const wallMat = new THREE.MeshStandardMaterial({
     color: 0x2e2014, roughness: 0.9, metalness: 0.05,
-    emissive: 0x3a2008, emissiveIntensity: 1.5,
+    emissive: 0x3a2008, emissiveIntensity: 1.8,
     side: THREE.BackSide, transparent: true,
   });
   const wall = new THREE.Mesh(wallGeo, wallMat);
@@ -302,15 +300,15 @@ export function createInterior(envMap) {
     mesh.position.y = y;
     group.add(mesh);
   };
-  mkSlab(50, 210);
-  mkSlab(98, 46);
+  mkSlab(48, 34);
+  mkSlab(96, -60);
 
   // 오쿨루스 (발광 디스크 + 링)
   const ocu = new THREE.Mesh(
     new THREE.CylinderGeometry(30, 30, 2, 40),
     M(new THREE.MeshBasicMaterial({ color: 0xffe8c8, toneMapped: false }))
   );
-  ocu.position.set(16, 118, 0);
+  ocu.position.set(-10, 112, 0);
   const ocuRing = new THREE.Mesh(
     new THREE.TorusGeometry(34, 2.2, 10, 44),
     M(new THREE.MeshStandardMaterial({ color: 0x6b4e2e, metalness: 0.6, roughness: 0.4, envMap }))
@@ -326,12 +324,20 @@ export function createInterior(envMap) {
   for (let i = 0; i < 34; i++) {
     const a = i * 0.42, y = 5 + i * 2.9;
     const st = new THREE.Mesh(stepGeo, stepMat);
-    st.position.set(34 + Math.cos(a) * 20, y, Math.sin(a) * 20);
+    st.position.set(52 + Math.cos(a) * 20, y, Math.sin(a) * 20);
     st.rotation.y = -a;
     stair.add(st);
   }
   const col = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 110, 16), M(new THREE.MeshStandardMaterial({ color: 0x8a7358, roughness: 0.5, emissive: 0x1a1206, emissiveIntensity: 1 })));
-  col.position.set(34, 56, 0);
+  // 구조 기둥 (유리 너머 리듬)
+  const pillarMat = M(new THREE.MeshStandardMaterial({ color: 0x9a8060, roughness: 0.55, emissive: 0x3a2410, emissiveIntensity: 1 }));
+  [-70, -20, 30, 85, 135].forEach((px, pi) => {
+    const ph = Math.max(roofAt(px) - 24, 60);
+    const pl = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, ph, 12), pillarMat);
+    pl.position.set(px, ph / 2 + 2, pi % 2 ? 18 : -14);
+    stair.add(pl);
+  });
+  col.position.set(52, 56, 0);
   stair.add(col);
   group.add(stair);
 
@@ -344,11 +350,12 @@ export function createInterior(envMap) {
   g2.fillStyle = grad; g2.fillRect(0, 0, 64, 64);
   const lampTex = new THREE.CanvasTexture(c);
   const rand = rng(88);
-  for (let i = 0; i < 38; i++) {
+  for (let i = 0; i < 52; i++) {
     const sm = M(new THREE.SpriteMaterial({ map: lampTex, color: 0xffdcb0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
     const sp = new THREE.Sprite(sm);
-    sp.scale.setScalar(14 + rand() * 16);
-    { const lx = -150 + rand() * 340; const ly = i < 12 ? 5 + rand() * 8 : 8 + rand() * 76; sp.position.set(lx, ly, (rand() - 0.5) * depthAt(lx) * 0.8); }
+    const low = i < 12;
+    sp.scale.setScalar(low ? 7 + rand() * 6 : 14 + rand() * 16);
+    { const lx = -150 + rand() * (low ? 290 : 320); const ly = low ? 5 + rand() * 8 : 8 + rand() * 76; sp.position.set(lx, ly, (rand() - 0.5) * depthAt(lx) * 0.7); }
     group.add(sp);
   }
   // 1층 가구/카운터 매스
@@ -364,8 +371,8 @@ export function createInterior(envMap) {
   for (let i = 0; i < 4; i++) {
     const sm = M(new THREE.SpriteMaterial({ map: lampTex, color: 0xffc890, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
     const sp = new THREE.Sprite(sm);
-    sp.scale.set(120, 80, 1);
-    sp.position.set(-120 + i * 95, 42, 0);
+    sp.scale.set(100, 66, 1);
+    sp.position.set(-130 + i * 70, 40, 0);
     group.add(sp);
   }
   function update(intensity) {
@@ -416,9 +423,9 @@ export function createMedallion(envMap) {
   // 프라우 전면 배치
   const outline = buildOutline(200);
   let best = null;
-  for (const o of outline) if (o.nz > 0.5 && o.x < -140 && (!best || o.x < best.x)) best = o;
+  for (const o of outline) if (o.nz > 0.5 && o.x < -95 && (!best || o.x < best.x)) best = o;
   const p = best || { x: -170, z: 70, nx: 0, nz: 1 };
-  group.position.set(p.x + p.nx * 13, 148, p.z + p.nz * 13);
+  group.position.set(p.x + p.nx * 13, 142, p.z + p.nz * 13);
   group.rotation.y = Math.atan2(p.nx, p.nz);
   const glowMat = faceMat;
   function update(lit, ghost) {

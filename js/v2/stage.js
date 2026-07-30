@@ -83,7 +83,7 @@ export function buildEnvironment(renderer) {
   // 림: 후면 바이올렛 광폭 스트립
   box(1000, 420, 0x6d2ef5, 2.2, [150, 320, -900]);
   // 지평 워머: 아래쪽 넓은 앰버-바이올렛
-  box(1600, 260, 0x3a2a66, 1.5, [0, -320, 300]);
+  box(1600, 260, 0x9a5a2e, 2.3, [0, -300, 340]);
   // 천장 은은한 돔 라이트
   box(900, 900, 0x2a3450, 1.2, [0, 950, 0]);
   const pmrem = new THREE.PMREMGenerator(renderer);

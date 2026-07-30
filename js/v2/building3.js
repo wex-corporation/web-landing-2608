@@ -345,6 +345,8 @@ export function createBuilding(envMap) {
       bu.uShatter.value = state.shatter;
       bu.uRingRot.value = state.ringRot;
       bu.uGhostB.value = state.holo;
+      bu.uSweepY.value = state.sweepY;
+      bu.uSweepI.value = state.sweepI;
       const litFade = state.interiorI;
       lampMats.forEach((m, i) => (m.opacity = litFade * (0.5 + 0.5 * Math.sin(t * 0.7 + i))));
       lamps.visible = litFade > 0.02;

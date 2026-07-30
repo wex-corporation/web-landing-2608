@@ -122,6 +122,21 @@ const railLinks = [...document.querySelectorAll('.rail a')];
 const counters = {};
 document.querySelectorAll('[data-c]').forEach((el) => (counters[el.dataset.c] = el));
 const stageBadge = document.getElementById('stageBadge');
+
+// 서막 실사 사진 — assets/hero.jpg 가 있으면 사용, 없으면 바로 브릭 씬으로 시작
+const PHOTO_SRC = 'assets/hero.jpg';
+const heroPhoto = document.getElementById('heroPhoto');
+const heroPhotoImg = document.getElementById('heroPhotoImg');
+let hasPhoto = false;
+if (heroPhoto) {
+  const probe = new Image();
+  probe.onload = () => {
+    hasPhoto = true;
+    heroPhotoImg.style.backgroundImage = `url("${PHOTO_SRC}")`;
+    heroPhoto.classList.add('on');
+  };
+  probe.src = PHOTO_SRC;
+}
 const FADE = [
   [-1, 0.0001, 0.5, 0.78],
   [0.05, 0.16, 0.86, 0.97],
@@ -158,17 +173,36 @@ function uiUpdate() {
 
 // ---------------------------------------------------------------- 상태
 const state = {
-  prog: 0, shatter: 0, ringRot: 0, holo: 0,
+  prog: 0, shatter: 0, ringRot: 0, holo: 0, sweepY: -1e5, sweepI: 0,
   interiorI: 0, sign: 0, cars: 0,
   tokScale: 0, tokAlpha: 1, tokPos: new THREE.Vector3(),
 };
+const tmpCol = new THREE.Color();
 const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3(), tmpD = new THREE.Vector3();
 
 function director(t, dt) {
   // 서막: 첫 화면부터 완성된 랜드마크를 보여준다.
   // 스크롤을 내리면 그 건물이 위에서부터 블록으로 풀리고(hero 1→0),
   // 곧바로 같은 블록이 다시 쌓이며(build 0→1) 건설 챕터로 이어진다 — 컷 없이 한 동작.
-  const hero = 1 - easeInOutSine(sp(T, 0.62, 0.98));
+  // 0.00~0.20 실사 사진 → 0.20~0.52 형광 보라 스윕이 훑고 지나가며 레고로 치환
+  // → 0.52~0.70 완성된 레고 → 0.70~0.98 위에서부터 해체 → 1.0~ 재조립(건설)
+  const sweep = sp(T, 0.20, 0.52);
+  const sweepE = easeInOutSine(sweep);
+  const sweepI = Math.sin(Math.PI * sweep);
+  state.sweepY = lerp(-70, 350, sweepE);
+  state.sweepI = sweepI * 1.0;
+  if (hasPhoto) {
+    const live = T < 0.76;
+    heroPhoto.classList.toggle('on', live);
+    if (live) {
+      heroPhoto.style.setProperty('--wipe', sweepE.toFixed(4));
+      heroPhoto.style.setProperty('--scan', sweepI.toFixed(3));
+      heroPhoto.style.setProperty('--zoom', (1 + 0.055 * sat(T / 0.62)).toFixed(4));
+      heroPhoto.style.opacity = (1 - sp(T, 0.6, 0.72)).toFixed(3);
+    }
+  }
+
+  const hero = 1 - easeInOutSine(sp(T, 0.70, 0.98));
   const buildRaw = easeInOutSine(sp(T, 1.0, 1.92));
   state.prog = T < 1 ? hero : T >= 2 ? 1 : buildRaw;
   state.holo = 0;
@@ -195,6 +229,8 @@ function director(t, dt) {
   // 바닥은 배경 지평과 같은 톤으로 — 반사·그림자 없이 자연스럽게 이어지도록
   floor.groundU.uNear.value.copy(M.hor).lerp(M.zen, 0.45).multiplyScalar(0.62);
   floor.groundU.uFar.value.copy(M.zen).multiplyScalar(0.6);
+  floor.groundU.uHaze.value.copy(M.hor).multiplyScalar(0.95).add(tmpCol.copy(M.glow).multiplyScalar(0.22 * M.gI));
+  floor.groundU.uGlow.value.copy(M.glow);
   dust.u.uTime.value = t;
   dust.u.uStr.value = 0.3 + smoothstep(0.1, 0.9, state.shatter) * 0.45;
 
@@ -241,7 +277,7 @@ function director(t, dt) {
   }
 
   building.update(state, t);
-  post.bloom.strength = 0.36 + state.holo * 0.1 + smoothstep(0.05, 0.5, state.shatter) * 0.08;
+  post.bloom.strength = 0.36 + state.holo * 0.1 + sweepI * 0.16 + smoothstep(0.05, 0.5, state.shatter) * 0.08;
   post.grade.uniforms.uTime.value = t;
 }
 

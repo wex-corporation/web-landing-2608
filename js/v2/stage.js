@@ -98,6 +98,8 @@ export function createFloor() {
   const u = {
     uNear: { value: new THREE.Color(0x0a0c16) },
     uFar: { value: new THREE.Color(0x020207) },
+    uHaze: { value: new THREE.Color(0x140d2a) },
+    uGlow: { value: new THREE.Color(0x2a1758) },
   };
   const ground = new THREE.Mesh(
     new THREE.CircleGeometry(6000, 96),
@@ -109,10 +111,15 @@ export function createFloor() {
       `,
       fragmentShader: /* glsl */`
         varying vec2 vP;
-        uniform vec3 uNear, uFar;
+        uniform vec3 uNear, uFar, uHaze, uGlow;
         void main(){
           float d = length(vP);
-          gl_FragColor = vec4(mix(uNear, uFar, smoothstep(140.0, 2600.0, d)), 1.0);
+          vec3 col = mix(uNear, uFar, smoothstep(140.0, 1400.0, d));
+          // 멀어질수록 하늘의 지평색에 녹아든다 — 바닥과 하늘 사이의 딱딱한 경계선 제거
+          col = mix(col, uHaze, smoothstep(1100.0, 4600.0, d));
+          // 건물 발치에 낮게 깔리는 노을빛
+          col += uGlow * 0.14 * exp(-d / 640.0);
+          gl_FragColor = vec4(col, 1.0);
         }
       `,
     })

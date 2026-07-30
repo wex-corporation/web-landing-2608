@@ -124,6 +124,7 @@ function injectBrickAnim(mat, u) {
         attribute float aOrder;
         uniform float uProg, uShatter, uRingRot, uTime, uReveal;
         varying float vFly;
+        varying float vBandY;
         vec3 gPos; float gAng; float gHide;
         mat2 rot2b(float a){ float s = sin(a), c = cos(a); return mat2(c, -s, s, c); }
         float easeIO3(float t){ return t < 0.5 ? 4.0*t*t*t : 1.0 - pow(-2.0*t + 2.0, 3.0) / 2.0; }
@@ -161,21 +162,27 @@ function injectBrickAnim(mat, u) {
         #include <begin_vertex>
         transformed.xz = rot2b(gAng) * transformed.xz;
         transformed += gPos;
+        vBandY = transformed.y;
         if (gHide > 0.5 || aTgt.x > uReveal + 9000.0) transformed = vec3(0.0);
       `);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', /* glsl */`
         #include <common>
         varying float vFly;
+        varying float vBandY;
         uniform float uGhostB;
+        uniform float uSweepY, uSweepI, uSweepW;
       `)
       .replace('#include <emissivemap_fragment>', /* glsl */`
         #include <emissivemap_fragment>
         totalEmissiveRadiance += vec3(0.42, 0.30, 1.0) * vFly * 0.4;
         totalEmissiveRadiance += vec3(0.35, 0.24, 0.9) * uGhostB * 0.5;
+        // 형광 보라 스윕: 건물을 한 번 감싸고 지나가는 높이 밴드
+        float sd = (vBandY - uSweepY) / uSweepW;
+        totalEmissiveRadiance += vec3(0.48, 0.22, 1.0) * uSweepI * exp(-sd * sd);
       `);
   };
-  mat.customProgramCacheKey = () => 'weblock-brick-v1' + (mat.transparent ? '-g' : '');
+  mat.customProgramCacheKey = () => 'weblock-brick-v2' + (mat.transparent ? '-g' : '');
 }
 
 // ---------------------------------------------------------------- 빌드
@@ -189,6 +196,9 @@ export function buildBrickMeshes(bricks, envMap, opts = {}) {
     uTime: { value: 0 },
     uReveal: { value: 1e9 },
     uGhostB: { value: 0 },
+    uSweepY: { value: -1e5 },
+    uSweepI: { value: 0 },
+    uSweepW: { value: 27 },
   };
 
   const opaque = new THREE.MeshStandardMaterial({

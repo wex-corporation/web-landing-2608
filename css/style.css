@@ -92,7 +92,7 @@ canvas#scene {
 /* ── 섹션 공통 ── */
 main { position: relative; z-index: 10; }
 section.ch { position: relative; }
-#ch0 { height: 220vh; }
+#ch0 { height: 300vh; }
 #ch1 { height: 430vh; }
 #ch2 { height: 240vh; }
 #ch3 { height: 360vh; }
@@ -335,6 +335,46 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .scroll-hint i, .loader-glyph { animation: none; }
+}
+
+/* ── 서막 실사 레이어 ── */
+/* 캔버스(z0) 위, 카피(z10) 아래. --wipe 0→1 로 아래에서 위로 사진이 벗겨지고
+   그 경계를 형광 보라 밴드가 훑고 지나간다. */
+.hero-photo {
+  position: fixed; inset: 0; z-index: 3;
+  pointer-events: none; opacity: 0; visibility: hidden;
+  --wipe: 0; --scan: 0; --zoom: 1;
+}
+.hero-photo.on { visibility: visible; }
+.hero-photo-img {
+  position: absolute; inset: 0;
+  background-size: cover; background-position: center 58%;
+  transform: scale(var(--zoom));
+  will-change: transform, mask-image;
+  -webkit-mask-image: linear-gradient(to top,
+    transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));
+  mask-image: linear-gradient(to top,
+    transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));
+}
+/* 사진 위 톤 정리 — 3D 씬의 밤 무드와 이어지도록 */
+.hero-photo-scrim {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(to top, rgba(3,5,12,0.92) 0%, rgba(3,5,12,0.45) 34%, rgba(6,4,18,0.18) 66%, rgba(10,6,26,0.34) 100%),
+    linear-gradient(120deg, rgba(46,20,110,0.28), rgba(0,0,0,0) 60%);
+  -webkit-mask-image: linear-gradient(to top,
+    transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));
+  mask-image: linear-gradient(to top,
+    transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));
+}
+.hero-scan {
+  position: absolute; left: -8%; right: -8%; height: 30vh;
+  bottom: calc(var(--wipe) * 128% - 19vh);
+  opacity: var(--scan);
+  mix-blend-mode: screen; filter: blur(7px);
+  background: linear-gradient(to top,
+    rgba(91,22,238,0) 0%, rgba(124,77,255,0.42) 40%,
+    rgba(214,200,255,0.95) 56%, rgba(157,123,255,0.5) 66%, rgba(91,22,238,0) 100%);
 }
 
 /* ── 건설 단계 배지 (레고 설명서 봉지 번호) ── */

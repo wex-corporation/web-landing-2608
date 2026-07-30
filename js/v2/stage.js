@@ -1,6 +1,5 @@
-// v2 스테이지: 스튜디오 배경, IBL 환경, 거울 바닥, 부유 먼지, 헤일로
+// v2 스테이지: 스튜디오 배경, IBL 환경, 무반사 바닥, 부유 먼지, 헤일로
 import * as THREE from 'three';
-import { Reflector } from 'three/addons/objects/Reflector.js';
 import { GLSL_COMMON } from '../util.js';
 
 export const VIOLET = new THREE.Color(0x6d2ef5);
@@ -92,56 +91,37 @@ export function buildEnvironment(renderer) {
   return rt.texture;
 }
 
-// ---------------------------------------------------------------- 거울 바닥
+// ---------------------------------------------------------------- 바닥 (반사 없음)
+// 건물이 두 번 비쳐 보이던 거울 바닥을 걷어내고, 배경 지평과 이어지는 무광 지면만 남긴다.
 export function createFloor() {
   const group = new THREE.Group();
-  const mirror = new Reflector(new THREE.CircleGeometry(3200, 72), {
-    clipBias: 0.003,
-    textureWidth: 1024,
-    textureHeight: 1024,
-    color: 0x3a4456,
-  });
-  mirror.rotation.x = -Math.PI / 2;
-  mirror.position.y = 0;
-  group.add(mirror);
-
-  // 거울 위 감쇠 오버레이: 중심은 살짝 비치고 멀어질수록 어둠에 잠김
-  const u = { uFade: { value: 0.62 }, uTint: { value: new THREE.Color(0x0a0c18) } };
-  const overlay = new THREE.Mesh(
-    new THREE.CircleGeometry(3200, 72),
+  const u = {
+    uNear: { value: new THREE.Color(0x0a0c16) },
+    uFar: { value: new THREE.Color(0x020207) },
+  };
+  const ground = new THREE.Mesh(
+    new THREE.CircleGeometry(6000, 96),
     new THREE.ShaderMaterial({
       uniforms: u,
-      transparent: true,
-      depthWrite: false,
       vertexShader: /* glsl */`
         varying vec2 vP;
         void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
       `,
       fragmentShader: /* glsl */`
         varying vec2 vP;
-        uniform float uFade; uniform vec3 uTint;
+        uniform vec3 uNear, uFar;
         void main(){
           float d = length(vP);
-          float a = mix(uFade, 0.97, smoothstep(260.0, 2500.0, d));
-          gl_FragColor = vec4(uTint, a);
+          gl_FragColor = vec4(mix(uNear, uFar, smoothstep(140.0, 2600.0, d)), 1.0);
         }
       `,
     })
   );
-  overlay.rotation.x = -Math.PI / 2;
-  overlay.position.y = 0.5;
-  overlay.renderOrder = 1;
-  group.add(overlay);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0;
+  group.add(ground);
 
-  // 타워 발치 바이올렛 글로우 링
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0x5b21d6, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(62, 84, 96), ringMat);
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.8;
-  ring.renderOrder = 2;
-  group.add(ring);
-
-  return { group, mirror, overlayU: u, ringMat };
+  return { group, groundU: u };
 }
 
 // ---------------------------------------------------------------- 부유 먼지

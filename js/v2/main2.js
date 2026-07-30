@@ -12,13 +12,14 @@ const MOBILE = matchMedia('(max-width: 820px)').matches;
 // ---------------------------------------------------------------- 부트
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(SNAP ? 1 : Math.min(devicePixelRatio, MOBILE ? 1.7 : 2));
+renderer.setPixelRatio(SNAP ? 1 : Math.min(devicePixelRatio, MOBILE ? 1.5 : 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(43, innerWidth / innerHeight, 2, 9000);
 camera.position.set(500, 150, 500);
+const REF_ASPECT = 1.6;
 
 const envMap = buildEnvironment(renderer);
 
@@ -50,14 +51,14 @@ camera.layers.enable(1);
 // ---------------------------------------------------------------- 무드
 const C = (h) => new THREE.Color(h);
 const MOODS = [
-  { zen: C(0x020208), hor: C(0x140d2a), glow: C(0x2a1758), gI: 0.55, stars: 0.55, exp: 1.0, mirror: 0.55 },
-  { zen: C(0x030210), hor: C(0x18102c), glow: C(0x3a2060), gI: 0.6, stars: 0.6, exp: 1.0, mirror: 0.5 },
-  { zen: C(0x0a0a14), hor: C(0x242030), glow: C(0xa06a44), gI: 0.72, stars: 0.35, exp: 1.1, mirror: 0.3 },
-  { zen: C(0x050414), hor: C(0x201435), glow: C(0x4c2a7e), gI: 0.85, stars: 0.7, exp: 1.0, mirror: 0.45 },
-  { zen: C(0x0a0a16), hor: C(0x262234), glow: C(0x94603c), gI: 0.72, stars: 0.4, exp: 1.1, mirror: 0.32 },
-  { zen: C(0x0a0a16), hor: C(0x262234), glow: C(0x94603c), gI: 0.72, stars: 0.4, exp: 1.1, mirror: 0.32 },
+  { zen: C(0x020208), hor: C(0x140d2a), glow: C(0x2a1758), gI: 0.55, stars: 0.55, exp: 1.0 },
+  { zen: C(0x030210), hor: C(0x18102c), glow: C(0x3a2060), gI: 0.6, stars: 0.6, exp: 1.0 },
+  { zen: C(0x0a0a14), hor: C(0x242030), glow: C(0xa06a44), gI: 0.72, stars: 0.35, exp: 1.1 },
+  { zen: C(0x050414), hor: C(0x201435), glow: C(0x4c2a7e), gI: 0.85, stars: 0.7, exp: 1.0 },
+  { zen: C(0x0a0a16), hor: C(0x262234), glow: C(0x94603c), gI: 0.72, stars: 0.4, exp: 1.1 },
+  { zen: C(0x0a0a16), hor: C(0x262234), glow: C(0x94603c), gI: 0.72, stars: 0.4, exp: 1.1 },
 ];
-const moodNow = { zen: new THREE.Color(), hor: new THREE.Color(), glow: new THREE.Color(), gI: 0, stars: 0, exp: 1, mirror: 0.5 };
+const moodNow = { zen: new THREE.Color(), hor: new THREE.Color(), glow: new THREE.Color(), gI: 0, stars: 0, exp: 1 };
 function evalMood(T) {
   const i = clamp(Math.floor(T), 0, 4);
   const t = easeInOutSine(sat(T - i));
@@ -68,7 +69,6 @@ function evalMood(T) {
   moodNow.gI = lerp(A.gI, B.gI, t);
   moodNow.stars = lerp(A.stars, B.stars, t);
   moodNow.exp = lerp(A.exp, B.exp, t);
-  moodNow.mirror = lerp(A.mirror, B.mirror, t);
   return moodNow;
 }
 
@@ -190,15 +190,17 @@ function director(t, dt) {
   backdrop.u.uStars.value = M.stars;
   backdrop.u.uTime.value = t;
   renderer.toneMappingExposure = M.exp;
-  floor.overlayU.uFade.value = M.mirror;
-  floor.ringMat.opacity = 0;
+  // 바닥은 배경 지평과 같은 톤으로 — 반사·그림자 없이 자연스럽게 이어지도록
+  floor.groundU.uNear.value.copy(M.hor).lerp(M.zen, 0.45).multiplyScalar(0.62);
+  floor.groundU.uFar.value.copy(M.zen).multiplyScalar(0.6);
   dust.u.uTime.value = t;
   dust.u.uStr.value = 0.3 + smoothstep(0.1, 0.9, state.shatter) * 0.45;
 
   // 카메라
   const az = crScalar(K_AZ, T);
-  const aspectScale = camera.aspect < 1.2 ? 1.3 - camera.aspect * 0.1 : 1;
-  const dist = crScalar(K_DIST, T) * Math.max(aspectScale, 1);
+  // 세로 화면일수록 가로 화각이 좁아지므로 거리로 보정 (기준 16:10)
+  const aspectScale = camera.aspect < REF_ASPECT ? Math.min(Math.sqrt(REF_ASPECT / camera.aspect), 1.95) : 1;
+  const dist = crScalar(K_DIST, T) * aspectScale;
   const hgt = crScalar(K_H, T);
   const tx = crScalar(K_TX, T);
   const ty = crScalar(K_TY, T);
@@ -222,7 +224,7 @@ function director(t, dt) {
     const f = tmpA.set(0, 0, -1).applyQuaternion(camera.quaternion);
     const r = tmpC.set(1, 0, 0).applyQuaternion(camera.quaternion);
     tmpD.copy(camera.position).addScaledVector(f, 300).addScaledVector(r, MOBILE ? 0 : -90);
-    tmpD.y += MOBILE ? 60 : 6;
+    tmpD.y += MOBILE ? 16 : 6;
     state.tokPos.copy(tmpD);
   }
   token.group.visible = state.tokScale > 0.001;
@@ -271,6 +273,12 @@ function frame() {
 function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  // 세로 화면: 건물을 화면 위쪽으로 밀어 아래 절반을 카피 영역으로 비워둔다
+  if (camera.aspect < 1.05) {
+    camera.setViewOffset(innerWidth, innerHeight, 0, Math.round(innerHeight * 0.15), innerWidth, innerHeight);
+  } else {
+    camera.clearViewOffset();
+  }
   renderer.setSize(innerWidth, innerHeight);
   post.setSize(innerWidth, innerHeight);
   measure();

@@ -87,9 +87,9 @@ function crScalar(keys, T) {
 }
 // 전면 = +z. 레퍼런스 사진과 같은 3/4 앵글(전면-우측)에서 완공 샷
 const K_AZ = [[0, 1.15], [1, 1.0], [1.5, 0.86], [2, 0.72], [2.5, 0.66], [3, 0.9], [3.55, 1.4], [4, 3.4], [4.5, 5.6], [5, 7.5]];
-const K_DIST = [[0, 900], [1, 620], [1.5, 640], [2, 620], [2.5, 660], [3, 820], [3.55, 920], [4, 1040], [4.5, 1150], [5, 950]];
-const K_H = [[0, 185], [1, 110], [1.5, 155], [2, 170], [2.5, 165], [3, 240], [3.55, 285], [4, 235], [4.5, 250], [5, 205]];
-const K_TY = [[0, 135], [1, 85], [1.5, 115], [2, 132], [2.5, 132], [3, 150], [3.55, 158], [4, 142], [5, 138]];
+const K_DIST = [[0, 1010], [1, 620], [1.5, 640], [2, 620], [2.5, 660], [3, 820], [3.55, 920], [4, 1040], [4.5, 1150], [5, 950]];
+const K_H = [[0, 205], [1, 110], [1.5, 155], [2, 170], [2.5, 165], [3, 240], [3.55, 285], [4, 235], [4.5, 250], [5, 205]];
+const K_TY = [[0, 208], [1, 85], [1.5, 115], [2, 132], [2.5, 132], [3, 150], [3.55, 158], [4, 142], [5, 138]];
 const K_TX = [[0, 0], [1, -40], [1.5, 0], [2, 30], [2.5, 20], [3, 0], [4, 0], [5, 0]];
 const K_FOV = [[0, 40], [1, 45], [2, 43], [3, 42], [3.55, 44], [4, 44], [5, 42]];
 
@@ -165,17 +165,19 @@ const state = {
 const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3(), tmpD = new THREE.Vector3();
 
 function director(t, dt) {
-  // 서막: 홀로그램 프리뷰 (완성형을 미리 한 번)
-  state.holo = sp(T, 0.2, 0.6) * (1 - sp(T, 0.86, 1.02));
+  // 서막: 첫 화면부터 완성된 랜드마크를 보여준다.
+  // 스크롤을 내리면 그 건물이 위에서부터 블록으로 풀리고(hero 1→0),
+  // 곧바로 같은 블록이 다시 쌓이며(build 0→1) 건설 챕터로 이어진다 — 컷 없이 한 동작.
+  const hero = 1 - easeInOutSine(sp(T, 0.62, 0.98));
+  const buildRaw = easeInOutSine(sp(T, 1.0, 1.92));
+  state.prog = T < 1 ? hero : T >= 2 ? 1 : buildRaw;
+  state.holo = 0;
 
-  // 건설: 브릭 조립 (설명서 3봉지 = 3단계)
-  const buildRaw = easeInOutSine(sp(T, 1.04, 1.94));
-  state.prog = T < 1 ? (state.holo > 0.01 ? 1 : 0) : T >= 2 ? 1 : buildRaw;
-
-  // 완공: 실내 점등 + 사인 + 자동차
-  state.interiorI = Math.min(easeInOutSine(sp(T, 2.05, 2.55)) * (1 - sp(T, 3.3, 3.7) * 0.8) + sp(T, 4.2, 4.6) * 0.8, 1);
-  state.sign = sp(T, 1.9, 2.35);
-  state.cars = sp(T, 2.0, 2.45);
+  // 완공: 실내 점등 + 사인 + 자동차 (서막에서도 완공 상태로 보여준다)
+  const lit = easeInOutSine(sp(T, 2.05, 2.55)) * (1 - sp(T, 3.3, 3.7) * 0.8) + sp(T, 4.2, 4.6) * 0.8;
+  state.interiorI = Math.min(Math.max(lit, hero * 0.95), 1);
+  state.sign = Math.max(hero, sp(T, 1.9, 2.35));
+  state.cars = Math.max(hero, sp(T, 2.0, 2.45));
 
   // 조각화 (+ CTA 재조립)
   state.shatter = sp(T, 3.05, 3.9) * (1 - easeInOutSine(sp(T, 4.05, 4.5)));
@@ -200,7 +202,9 @@ function director(t, dt) {
   const az = crScalar(K_AZ, T);
   // 세로 화면일수록 가로 화각이 좁아지므로 거리로 보정 (기준 16:10)
   const aspectScale = camera.aspect < REF_ASPECT ? Math.min(Math.sqrt(REF_ASPECT / camera.aspect), 1.95) : 1;
-  const dist = crScalar(K_DIST, T) * aspectScale;
+  // 세로 화면 서막은 카피가 아래로 빠지므로 건물을 조금 더 당겨 크게 보여준다
+  const heroPull = camera.aspect < 1.05 ? 1 - 0.22 * (1 - sat(T)) : 1;
+  const dist = crScalar(K_DIST, T) * aspectScale * heroPull;
   const hgt = crScalar(K_H, T);
   const tx = crScalar(K_TX, T);
   const ty = crScalar(K_TY, T);

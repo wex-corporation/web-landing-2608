@@ -75,18 +75,28 @@ export function buildGrid() {
   return g;
 }
 
-// ---------------------------------------------------------------- 로고 텍스처 (업로드 로고와 동일 배열)
-const W_BLOCKS = [[0, 0], [4, 0], [2, 0.55], [1, 1.1], [3, 1.1]];
-function drawMark(g, cx, cy, unit, colors) {
-  const gap = unit * 0.09, P = unit + gap;
-  const mx = cx - (P * 4 + unit) / 2;
-  W_BLOCKS.forEach(([bx, by], i) => {
-    g.fillStyle = colors[i];
-    g.fillRect(mx + bx * P, cy + by * unit, unit, unit);
-  });
+// ---------------------------------------------------------------- 로고 마크 (단일 사양)
+// 업로드 로고 사양: 5열 × 세로 1:2 블록. 윗줄 0·2·4, 아랫줄 1·3 → 지그재그 W.
+// 비율은 여기서만 정의하고 모든 렌더 지점이 이 값을 따른다 (찌그러짐 방지).
+const MARK_COLS = 5;
+const MARK_BH = 2;        // 블록 높이 ÷ 블록 폭
+const MARK_DROP = 0.88;   // 아랫줄 내림폭 ÷ 블록 높이
+const MARK_CELLS = [[0, 0], [2, 0], [4, 0], [1, 1], [3, 1]];
+export const MARK_ASPECT = MARK_COLS / (MARK_BH * (1 + MARK_DROP)); // ≈ 1.33 : 1
+
+// (cx, cy) 중심에 폭 markW로 그린다. 높이는 비율에서 파생되므로 절대 찌그러지지 않는다.
+function drawMark(g, cx, cy, markW, color) {
+  const u = markW / MARK_COLS;
+  const bh = u * MARK_BH;
+  const gap = u * 0.11;                       // 블록이 각각 하나의 브릭으로 읽히도록
+  const x0 = cx - markW / 2;
+  const y0 = cy - (bh * (1 + MARK_DROP)) / 2;
+  g.fillStyle = color;
+  MARK_CELLS.forEach(([bx, by]) =>
+    g.fillRect(x0 + bx * u + gap / 2, y0 + by * bh * MARK_DROP + gap / 2, u - gap, bh - gap));
 }
-const VIOLET_SET = ['#8A5CFF', '#8A5CFF', '#7C4DFF', '#6D2EF5', '#6D2EF5'];
-const LIGHT_SET = ['#F2F0FA', '#F2F0FA', '#E4DEFF', '#CFC2FF', '#CFC2FF'];
+const MARK_VIOLET = '#5B16EE';   // 업로드 로고 원색
+const MARK_LIGHT = '#F6F4FF';
 
 // 원형 메달리온 (스타벅스 사인 위치 → WeBlock)
 export function createMedallion() {
@@ -102,11 +112,11 @@ export function createMedallion() {
     g.beginPath(); g.arc(256, 256, 250, 0, 7); g.fill();
     g.lineWidth = 16; g.strokeStyle = '#8A5CFF';
     g.beginPath(); g.arc(256, 256, 238, 0, 7); g.stroke();
-    drawMark(g, 256, 168, 62, LIGHT_SET);
-    g.fillStyle = '#F2F0FA';
+    drawMark(g, 256, 208, 268, MARK_LIGHT);
+    g.fillStyle = MARK_LIGHT;
     g.font = '800 62px Pretendard, sans-serif';
-    g.textAlign = 'center';
-    g.fillText('WeBlock', 256, 392);
+    g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.fillText('WeBlock', 256, 400);
     tex.needsUpdate = true;
   };
   draw();
@@ -124,27 +134,36 @@ export function createMedallion() {
 }
 
 // 파사드 워드마크 (사진의 'STARBUCKS' 자리)
+// 캔버스를 글자 실측폭에 맞춰 만들고, 메시는 그 종횡비대로 스케일 → 늘어남 없음
 export function createWordmark() {
   const c = document.createElement('canvas');
-  c.width = 1024; c.height = 200;
+  c.width = 1024; c.height = 220;
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
+  const H_WORLD = 16;
+  const FONT = '800 120px Pretendard, sans-serif';
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false }));
   const draw = () => {
-    const g = c.getContext('2d');
-    g.clearRect(0, 0, 1024, 200);
-    drawMark(g, 190, 58, 30, VIOLET_SET);
+    const H = 220, markW = 148, gap = 46, pad = 6;
+    let g = c.getContext('2d');
+    g.font = FONT;
+    const W = Math.ceil(pad * 2 + markW + gap + g.measureText('WeBlock').width);
+    if (c.width !== W) c.width = W;      // 캔버스 리사이즈 시 컨텍스트가 초기화된다
+    if (c.height !== H) c.height = H;
+    g = c.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    drawMark(g, pad + markW / 2, H / 2, markW, MARK_VIOLET);
     g.fillStyle = '#20242e';
-    g.font = '800 96px Pretendard, sans-serif';
-    g.textAlign = 'left';
-    g.fillText('WeBlock', 330, 132);
+    g.font = FONT;
+    g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText('WeBlock', pad + markW + gap, H / 2 + 4);
     tex.needsUpdate = true;
+    mesh.scale.set(H_WORLD * (W / H), H_WORLD, 1);
   };
   draw();
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(128, 25), mat);
   mesh.position.set((10.5 - 17) * U, 6.55 * BH, (22 - 12) * U + 6.2);
-  return { mesh, redraw: draw, mats: [mat] };
+  return { mesh, redraw: draw, mats: [mesh.material] };
 }
 
 // 폴 사인 (레퍼런스의 드라이브스루 기둥) — 브릭 폴 + 메달리온
@@ -164,11 +183,11 @@ export function createPoleSign() {
     g.beginPath(); g.arc(128, 128, 124, 0, 7); g.fill();
     g.lineWidth = 9; g.strokeStyle = '#8A5CFF';
     g.beginPath(); g.arc(128, 128, 118, 0, 7); g.stroke();
-    drawMark(g, 128, 88, 32, LIGHT_SET);
-    g.fillStyle = '#F2F0FA';
+    drawMark(g, 128, 104, 134, MARK_LIGHT);
+    g.fillStyle = MARK_LIGHT;
     g.font = '800 30px Pretendard, sans-serif';
-    g.textAlign = 'center';
-    g.fillText('WeBlock', 128, 196);
+    g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.fillText('WeBlock', 128, 200);
     tex.needsUpdate = true;
   };
   draw();
@@ -235,56 +254,44 @@ export function createCars(envMap) {
   return { group, mats: [bodyMat, glassMat, tireMat] };
 }
 
-// ---------------------------------------------------------------- 토큰 카드
+// ---------------------------------------------------------------- 토큰 코인 (업로드한 원형 심벌)
 function drawTokenFace(c) {
+  const S = 512, R = S / 2;
   const g = c.getContext('2d');
-  g.clearRect(0, 0, 512, 704);
-  g.fillStyle = '#0a0716';
-  g.fillRect(0, 0, 512, 704);
-  g.strokeStyle = 'rgba(157,123,255,0.95)'; g.lineWidth = 6;
-  g.strokeRect(18, 18, 476, 668);
-  g.strokeStyle = 'rgba(109,46,245,0.35)'; g.lineWidth = 2;
-  g.strokeRect(34, 34, 444, 636);
-  drawMark(g, 256, 150, 44, LIGHT_SET);
-  g.fillStyle = '#F2F0FA';
-  g.font = '800 62px Pretendard, sans-serif';
-  g.textAlign = 'center';
-  g.fillText('WeBlock', 256, 428);
-  g.font = '400 28px Pretendard, sans-serif';
-  g.fillStyle = 'rgba(190,175,255,0.85)';
-  g.fillText('BUILDING FRACTION', 256, 482);
-  g.font = '700 44px Pretendard, sans-serif';
-  g.fillStyle = '#9d7bff';
-  g.fillText('1 / 100,000', 256, 560);
-  g.font = '400 23px Pretendard, sans-serif';
-  g.fillStyle = 'rgba(140,130,180,0.85)';
-  g.fillText('WBL · FLAGSHIP No.0001', 256, 634);
+  g.clearRect(0, 0, S, S);
+  // 바이올렛 원판 = 업로드 심벌
+  g.fillStyle = MARK_VIOLET;
+  g.beginPath(); g.arc(R, R, R, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,0.2)'; g.lineWidth = 5;
+  g.beginPath(); g.arc(R, R, R - 24, 0, 7); g.stroke();
+  drawMark(g, R, R - 30, 244, '#E4DCFF');   // 순백은 블룸에 뭉개져 형태가 사라진다
+  g.fillStyle = 'rgba(228,220,255,0.92)';
+  g.font = '700 38px Pretendard, sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.fillText('1 / 100,000', R, R + 148);
 }
 export function createToken(envMap) {
   const group = new THREE.Group();
-  const W = 60, Hh = 82, D = 5.5;
+  const R = 46, D = 7;
   const c = document.createElement('canvas');
-  c.width = 512; c.height = 704;
+  c.width = c.height = 512;
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   const redraw = () => { drawTokenFace(c); tex.needsUpdate = true; };
   redraw();
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(W, Hh, D),
-    new THREE.MeshPhysicalMaterial({ color: 0x120b26, metalness: 0.75, roughness: 0.28, envMap, envMapIntensity: 1.1, transparent: true })
-  );
+  const rimMat = new THREE.MeshPhysicalMaterial({
+    color: 0x3d10a8, metalness: 0.85, roughness: 0.24, envMap, envMapIntensity: 1.2, transparent: true,
+  });
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(R, R, D, 72), rimMat);
+  rim.rotation.x = Math.PI / 2;
   const faceMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false });
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.94, Hh * 0.94), faceMat);
-  face.position.z = D / 2 + 0.15;
-  const face2 = face.clone(); face2.rotation.y = Math.PI; face2.position.z = -D / 2 - 0.15;
-  const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(body.geometry),
-    new THREE.LineBasicMaterial({ color: 0x9d7bff, transparent: true, opacity: 0.95 })
-  );
-  group.add(body, face, face2, edges);
+  const face = new THREE.Mesh(new THREE.CircleGeometry(R * 0.995, 72), faceMat);
+  face.position.z = D / 2 + 0.12;
+  const face2 = face.clone(); face2.rotation.y = Math.PI; face2.position.z = -D / 2 - 0.12;
+  group.add(rim, face, face2);
   group.visible = false;
-  return { group, mats: [body.material, faceMat, edges.material], redraw };
+  return { group, mats: [rimMat, faceMat], redraw };
 }
 
 // ---------------------------------------------------------------- 전체 조립

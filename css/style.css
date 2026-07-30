@@ -250,3 +250,14 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   .scroll-hint i, .loader-glyph { animation: none; }
 }
+
+/* ── 건설 단계 배지 (레고 설명서 봉지 번호) ── */
+.stage-badge {
+  position: fixed; left: 50%; top: 88px; transform: translateX(-50%);
+  z-index: 40; opacity: 0; transition: opacity 0.4s ease;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.28em;
+  color: var(--cyan); padding: 8px 16px; border-radius: 999px;
+  border: 1px solid rgba(157, 123, 255, 0.3);
+  background: rgba(12, 8, 26, 0.55); backdrop-filter: blur(10px);
+  font-variant-numeric: tabular-nums; pointer-events: none;
+}

@@ -1,11 +1,8 @@
-// v2 디렉터 — WeBlock 플래그십 빌딩 (서막→건설→완공→조각화→CTA)
+// v2 디렉터 — WeBlock 플래그십 (브릭 조립 → 완공 → 조각화 → CTA)
 import * as THREE from 'three';
 import { createBackdrop, buildEnvironment, createFloor, createDust } from './stage.js';
-import {
-  createFins, createHull, createRibbon, createInterior, createMedallion,
-  createFractions, createToken, DONE_X, roofAt, depthAt,
-} from './building.js';
-import { createSparks, createComposer } from '../fx.js';
+import { createBuilding, createToken, W_HEIGHT } from './building3.js';
+import { createComposer } from '../fx.js';
 import { clamp, lerp, sat, span as sp, smoothstep, easeInOutSine, easeOutCubic, easeOutExpo, fmtKR } from '../util.js';
 
 const SNAP = /[?&]snap/.test(location.search);
@@ -17,7 +14,6 @@ const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(SNAP ? 1 : Math.min(devicePixelRatio, MOBILE ? 1.7 : 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.localClippingEnabled = true;
 renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
@@ -29,63 +25,39 @@ const envMap = buildEnvironment(renderer);
 const backdrop = createBackdrop();
 const floor = createFloor();
 const dust = createDust();
-const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 300);
-const fins = createFins(envMap);
-const hull = createHull(envMap);
-hull.clipMats.forEach((m) => (m.clippingPlanes = [clipPlane]));
-const ribbon = createRibbon(envMap);
-ribbon.mesh.material.clippingPlanes = [clipPlane];
-const interior = createInterior(envMap);
-const medallion = createMedallion(envMap);
-const fractions = createFractions();
+const building = createBuilding(envMap);
 const token = createToken(envMap);
-const sparks = createSparks();
-// 건설 '프린팅 헤드' 광선 바
-const barTexC = document.createElement('canvas'); barTexC.width = 64; barTexC.height = 256;
-{
-  const g = barTexC.getContext('2d');
-  const gr = g.createLinearGradient(0, 0, 64, 0);
-  gr.addColorStop(0, 'rgba(160,120,255,0)');
-  gr.addColorStop(0.5, 'rgba(220,200,255,1)');
-  gr.addColorStop(1, 'rgba(160,120,255,0)');
-  g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
-}
-const barMat = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(barTexC), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-const printBar = new THREE.Sprite(barMat);
-dust.mesh.layers.set(1);
-interior.group.traverse((o) => o.layers.set(1)); // 실내 광원은 거울 반사에서 제외 (반사 왜곡 방지)
-camera.layers.enable(1);
-scene.add(
-  backdrop.mesh, floor.group, dust.mesh,
-  hull.wall, hull.innerFloor, interior.group, hull.mesh, fins.mesh, ribbon.mesh, medallion.group,
-  fractions.mesh, token.group, sparks.mesh, printBar
-);
+scene.add(backdrop.mesh, floor.group, dust.mesh, building.group, token.group);
 
 // 스튜디오 라이트
-const key = new THREE.DirectionalLight(0xdfe8ff, 1.15);
-key.position.set(-700, 600, 700);
-const rim = new THREE.DirectionalLight(0x8a5cff, 0.8);
-rim.position.set(500, 260, -700);
-const warm = new THREE.DirectionalLight(0xffb87a, 1.0);
-warm.position.set(250, 300, 750);
-const fill = new THREE.HemisphereLight(0x2a3050, 0x07060a, 0.7);
+const key = new THREE.DirectionalLight(0xfbf8ff, 2.5);
+key.position.set(-620, 620, 700);
+const rim = new THREE.DirectionalLight(0xa88cff, 0.35);
+rim.position.set(520, 300, -650);
+const warm = new THREE.DirectionalLight(0xffcc9a, 1.25);
+warm.position.set(300, 260, 700);
+const fill = new THREE.HemisphereLight(0x5b6480, 0x14121a, 1.5);
 scene.add(key, rim, warm, fill);
 
 const post = createComposer(renderer, scene, camera);
-post.bloom.strength = 0.42;
+post.bloom.strength = 0.38;
 post.bloom.threshold = 0.9;
+
+dust.mesh.layers.set(1);
+building.lamps.traverse((o) => o.layers.set(1));
+camera.layers.enable(1);
 
 // ---------------------------------------------------------------- 무드
 const C = (h) => new THREE.Color(h);
 const MOODS = [
-  { zen: C(0x020208), hor: C(0x140d2a), glow: C(0x2a1758), gI: 0.55, stars: 0.55, exp: 1.0, mirror: 0.6 },
-  { zen: C(0x020207), hor: C(0x100a20), glow: C(0x23124a), gI: 0.4, stars: 0.7, exp: 0.98, mirror: 0.64 },
-  { zen: C(0x0a0716), hor: C(0x35182a), glow: C(0x9a4e26), gI: 0.95, stars: 0.4, exp: 1.04, mirror: 0.22 },
-  { zen: C(0x020209), hor: C(0x0e0a22), glow: C(0x33176a), gI: 0.8, stars: 0.8, exp: 1.0, mirror: 0.5 },
-  { zen: C(0x050414), hor: C(0x201435), glow: C(0x4c2a7e), gI: 0.9, stars: 0.4, exp: 1.04, mirror: 0.26 },
-  { zen: C(0x0a0718), hor: C(0x30182c), glow: C(0x8a4828), gI: 0.9, stars: 0.4, exp: 1.04, mirror: 0.26 },
+  { zen: C(0x020208), hor: C(0x140d2a), glow: C(0x2a1758), gI: 0.55, stars: 0.55, exp: 1.0, mirror: 0.55 },
+  { zen: C(0x030210), hor: C(0x18102c), glow: C(0x3a2060), gI: 0.6, stars: 0.6, exp: 1.0, mirror: 0.5 },
+  { zen: C(0x0a0a14), hor: C(0x242030), glow: C(0xa06a44), gI: 0.72, stars: 0.35, exp: 1.1, mirror: 0.3 },
+  { zen: C(0x050414), hor: C(0x201435), glow: C(0x4c2a7e), gI: 0.85, stars: 0.7, exp: 1.0, mirror: 0.45 },
+  { zen: C(0x0a0a16), hor: C(0x262234), glow: C(0x94603c), gI: 0.72, stars: 0.4, exp: 1.1, mirror: 0.32 },
+  { zen: C(0x0a0a16), hor: C(0x262234), glow: C(0x94603c), gI: 0.72, stars: 0.4, exp: 1.1, mirror: 0.32 },
 ];
-const moodNow = { zen: new THREE.Color(), hor: new THREE.Color(), glow: new THREE.Color(), gI: 0, stars: 0, exp: 1, mirror: 0.6 };
+const moodNow = { zen: new THREE.Color(), hor: new THREE.Color(), glow: new THREE.Color(), gI: 0, stars: 0, exp: 1, mirror: 0.5 };
 function evalMood(T) {
   const i = clamp(Math.floor(T), 0, 4);
   const t = easeInOutSine(sat(T - i));
@@ -100,7 +72,7 @@ function evalMood(T) {
   return moodNow;
 }
 
-// ---------------------------------------------------------------- 카메라 궤도 릭
+// ---------------------------------------------------------------- 카메라
 function crScalar(keys, T) {
   const n = keys.length;
   let i = 0;
@@ -113,13 +85,13 @@ function crScalar(keys, T) {
   const t2 = t * t, t3 = t2 * t;
   return 0.5 * ((2 * k1) + (-k0 + k2) * t + (2 * k0 - 5 * k1 + 4 * k2 - k3) * t2 + (-k0 + 3 * k1 - 3 * k2 + k3) * t3);
 }
-// 전면 = +z (az ≈ π/2). CTA까지 한 바퀴 돌아 전면으로 복귀
-const K_AZ = [[0, 0.95], [1, 1.3], [1.5, 1.52], [2, 1.8], [2.5, 2.05], [3, 2.5], [3.55, 3.3], [4, 5.2], [4.5, 6.9], [5, 7.65]];
-const K_DIST = [[0, 1000], [1, 520], [1.5, 470], [2, 480], [2.5, 780], [3, 880], [3.55, 900], [4, 620], [5, 1150]];
-const K_H = [[0, 150], [1, 50], [1.5, 80], [2, 88], [2.5, 140], [3, 185], [3.55, 230], [4, 120], [5, 128]];
-const K_TY = [[0, 92], [1, 55], [1.5, 72], [2, 84], [2.5, 88], [3, 95], [3.55, 98], [4, 88], [5, 84]];
-const K_TX = [[0, 0], [1, -150], [1.4, -60], [1.8, 110], [2, 30], [3, 0], [4, 0], [5, -20]];
-const K_FOV = [[0, 40], [1, 46], [2, 44], [3, 42], [3.55, 44], [4, 44], [5, 42]];
+// 전면 = +z. 레퍼런스 사진과 같은 3/4 앵글(전면-우측)에서 완공 샷
+const K_AZ = [[0, 1.15], [1, 1.0], [1.5, 0.86], [2, 0.72], [2.5, 0.66], [3, 0.9], [3.55, 1.4], [4, 2.6], [4.5, 4.2], [5, 5.4]];
+const K_DIST = [[0, 900], [1, 620], [1.5, 640], [2, 620], [2.5, 660], [3, 820], [3.55, 920], [4, 720], [5, 950]];
+const K_H = [[0, 185], [1, 110], [1.5, 155], [2, 170], [2.5, 165], [3, 240], [3.55, 285], [4, 195], [5, 205]];
+const K_TY = [[0, 135], [1, 85], [1.5, 115], [2, 132], [2.5, 132], [3, 150], [3.55, 158], [4, 142], [5, 138]];
+const K_TX = [[0, 0], [1, -40], [1.5, 0], [2, 30], [2.5, 20], [3, 0], [4, 0], [5, 0]];
+const K_FOV = [[0, 40], [1, 45], [2, 43], [3, 42], [3.55, 44], [4, 44], [5, 42]];
 
 // ---------------------------------------------------------------- 스크롤 → 타임라인
 const sections = [...document.querySelectorAll('section.ch')];
@@ -149,6 +121,7 @@ const copies = sections.map((s) => s.querySelector('.copy'));
 const railLinks = [...document.querySelectorAll('.rail a')];
 const counters = {};
 document.querySelectorAll('[data-c]').forEach((el) => (counters[el.dataset.c] = el));
+const stageBadge = document.getElementById('stageBadge');
 const FADE = [
   [-1, 0.0001, 0.5, 0.78],
   [0.05, 0.16, 0.86, 0.97],
@@ -170,49 +143,43 @@ function uiUpdate() {
     el.style.visibility = o < 0.005 ? 'hidden' : 'visible';
   }
   railLinks.forEach((lnk, i) => lnk.classList.toggle('on', i === li));
-  set('prog', Math.round(sat((state.buildX + 260) / (DONE_X + 260)) * 100));
+  set('prog', Math.round(state.prog * 100));
+  set('bricks', fmtKR(Math.round(building.brickSys.count * state.prog)));
   set('frag', fmtKR(100000 * easeOutExpo(sp(T, 3.28, 3.92))));
+  if (stageBadge) {
+    const on = T > 1.02 && T < 2.02;
+    stageBadge.style.opacity = on ? '1' : '0';
+    if (on) {
+      const bag = clamp(Math.floor(state.prog * 3) + 1, 1, 3);
+      stageBadge.textContent = `BAG ${String(bag).padStart(2, '0')} / 03`;
+    }
+  }
 }
 
-// ---------------------------------------------------------------- 프레임 상태
+// ---------------------------------------------------------------- 상태
 const state = {
-  buildX: -260, frontier: 0, holo: 0, ghost: 0,
-  scanX: -300, scanI: 0, shatter: 0, ringRot: 0, edgeGlow: 0,
-  interiorI: 0, logoLit: 0,
+  prog: 0, shatter: 0, ringRot: 0, holo: 0,
+  interiorI: 0, sign: 0, cars: 0,
   tokScale: 0, tokAlpha: 1, tokPos: new THREE.Vector3(),
-  sparkRate: 0,
 };
 const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3(), tmpD = new THREE.Vector3();
-const sparkEmit = () => {
-  const bx = state.buildX;
-  const side = Math.random() > 0.5 ? 1 : -1;
-  const h = roofAt(clamp(bx, -235, 235));
-  return [bx - 4, 4 + Math.random() * (h - 8), side * depthAt(clamp(bx, -235, 235)) * (0.65 + Math.random() * 0.4)];
-};
 
 function director(t, dt) {
-  // 서막 홀로그램
-  state.holo = sp(T, 0.2, 0.6) * (1 - sp(T, 0.85, 1.02));
+  // 서막: 홀로그램 프리뷰 (완성형을 미리 한 번)
+  state.holo = sp(T, 0.2, 0.6) * (1 - sp(T, 0.86, 1.02));
 
-  // 건설: 좌→우 스윕 (루버 조립 + 리본 결정화)
-  const bp = easeInOutSine(sp(T, 1.05, 1.95));
-  state.buildX = T < 1 ? -260 : T >= 2 ? DONE_X : lerp(-260, DONE_X, bp);
-  state.frontier = sp(T, 1.05, 1.15) * (1 - sp(T, 1.9, 2.0));
-  state.sparkRate = REDUCED ? 0 : state.frontier * (state.buildX > -230 && state.buildX < 245 ? 1.3 : 0);
+  // 건설: 브릭 조립 (설명서 3봉지 = 3단계)
+  const buildRaw = easeInOutSine(sp(T, 1.04, 1.94));
+  state.prog = T < 1 ? (state.holo > 0.01 ? 1 : 0) : T >= 2 ? 1 : buildRaw;
 
-  // 완공: 인테리어 점등 + 메달리온
-  const lightsOn = easeInOutSine(sp(T, 2.12, 2.6));
-  state.logoLit = sp(T, 2.4, 2.7);
-  state.interiorI = lightsOn * (1 - sp(T, 3.2, 3.6) * 0.85) + sp(T, 4.15, 4.6) * 0.85;
-  state.interiorI = Math.min(state.interiorI, 1);
+  // 완공: 실내 점등 + 사인 + 자동차
+  state.interiorI = Math.min(easeInOutSine(sp(T, 2.05, 2.55)) * (1 - sp(T, 3.3, 3.7) * 0.8) + sp(T, 4.2, 4.6) * 0.8, 1);
+  state.sign = sp(T, 1.9, 2.35);
+  state.cars = sp(T, 2.0, 2.45);
 
-  // 조각화 (+ CTA 재결합)
-  state.scanI = sp(T, 3.02, 3.1) * (1 - sp(T, 3.5, 3.6));
-  state.scanX = lerp(-290, 300, easeInOutSine(sp(T, 3.02, 3.6)));
-  state.shatter = sp(T, 3.12, 3.92) * (1 - easeInOutSine(sp(T, 4.08, 4.55)));
-  state.ghost = sp(T, 3.25, 3.85) * (1 - sp(T, 4.12, 4.55));
-  state.edgeGlow = sp(T, 3.18, 3.5) * (1 - sp(T, 4.2, 4.55));
-  state.ringRot += dt * (0.1 + smoothstep(0.2, 0.8, state.shatter) * 0.22);
+  // 조각화 (+ CTA 재조립)
+  state.shatter = sp(T, 3.05, 3.9) * (1 - easeInOutSine(sp(T, 4.05, 4.5)));
+  state.ringRot += dt * (0.1 + smoothstep(0.2, 0.8, state.shatter) * 0.24);
 
   // 무드
   const M = evalMood(T);
@@ -226,20 +193,16 @@ function director(t, dt) {
   floor.overlayU.uFade.value = M.mirror;
   floor.ringMat.opacity = 0;
   dust.u.uTime.value = t;
-  dust.u.uStr.value = 0.32 + smoothstep(0.1, 0.9, state.shatter) * 0.45;
+  dust.u.uStr.value = 0.3 + smoothstep(0.1, 0.9, state.shatter) * 0.45;
 
   // 카메라
   const az = crScalar(K_AZ, T);
-  const aspectScale = camera.aspect < 1.2 ? 1.28 - camera.aspect * 0.1 : 1;
+  const aspectScale = camera.aspect < 1.2 ? 1.3 - camera.aspect * 0.1 : 1;
   const dist = crScalar(K_DIST, T) * Math.max(aspectScale, 1);
-  let hgt = crScalar(K_H, T);
-  let tx = crScalar(K_TX, T);
+  const hgt = crScalar(K_H, T);
+  const tx = crScalar(K_TX, T);
   const ty = crScalar(K_TY, T);
-  if (T > 1.05 && T < 2.0) {
-    const k2 = smoothstep(1.05, 1.3, T) * (1 - sp(T, 1.9, 2.0));
-    tx = lerp(tx, clamp(state.buildX * 0.7, -180, 180), k2 * 0.7);
-  }
-  camera.position.set(tx * 0.4 + Math.cos(az) * dist, hgt, Math.sin(az) * dist);
+  camera.position.set(Math.cos(az) * dist, hgt, Math.sin(az) * dist);
   if (!REDUCED) {
     camera.position.x += Math.sin(t * 0.3) * 1.2;
     camera.position.y += Math.sin(t * 0.22 + 2) * 0.9;
@@ -252,14 +215,14 @@ function director(t, dt) {
 
   // 히어로 토큰
   const tokIn = easeOutCubic(sp(T, 3.5, 3.78));
-  const tokOut = easeInOutSine(sp(T, 4.05, 4.35));
+  const tokOut = easeInOutSine(sp(T, 4.02, 4.3));
   state.tokScale = tokIn * (1 - tokOut) * (MOBILE ? 0.82 : 1);
   state.tokAlpha = sat(tokIn * (1 - tokOut));
   if (state.tokScale > 0.001) {
     const f = tmpA.set(0, 0, -1).applyQuaternion(camera.quaternion);
     const r = tmpC.set(1, 0, 0).applyQuaternion(camera.quaternion);
-    tmpD.copy(camera.position).addScaledVector(f, 280).addScaledVector(r, MOBILE ? 0 : -80);
-    tmpD.y += MOBILE ? 56 : 6;
+    tmpD.copy(camera.position).addScaledVector(f, 300).addScaledVector(r, MOBILE ? 0 : -90);
+    tmpD.y += MOBILE ? 60 : 6;
     state.tokPos.copy(tmpD);
   }
   token.group.visible = state.tokScale > 0.001;
@@ -271,43 +234,8 @@ function director(t, dt) {
     token.mats.forEach((mm) => (mm.opacity = state.tokAlpha));
   }
 
-  // 빌딩 유니폼 라우팅
-  const revealX = state.holo > 0.005 ? DONE_X : state.buildX;
-  clipPlane.constant = revealX;
-  hull.u.uBuild.value = revealX;
-  hull.u.uTime.value = t;
-  hull.u.uGhost.value = state.ghost;
-  hull.u.uHolo.value = state.holo;
-  const building = T < 2.05;
-  hull.u.uScanX.value = building ? state.buildX : state.scanX;
-  hull.u.uScanI.value = Math.max(state.scanI, state.frontier * 0.5);
-  hull.mesh.visible = state.buildX > -255 || state.holo > 0.005;
-  hull.wall.visible = hull.innerFloor.visible = state.buildX > -255 && state.holo < 0.4;
-  hull.ghostMats.forEach((m) => (m.opacity = 1 - state.ghost * 0.85));
-  hull.mesh.material.opacity = 0.44 + state.holo * 0.18;
-  ribbon.u.uBuild.value = revealX;
-  ribbon.mat.opacity = (1 - state.ghost * 0.75) * (state.holo > 0.005 ? 0.55 : 1);
-  ribbon.mat.emissive.setRGB(0.11 + state.holo * 0.22, 0.07 + state.holo * 0.13, 0.02 + state.holo * 0.5);
-  ribbon.mesh.visible = state.buildX > -255 || state.holo > 0.005;
-  fins.update(state.buildX, state.holo, state.ghost, t);
-  interior.update(state.interiorI * (1 - state.holo));
-  medallion.update(state.logoLit, Math.max(state.ghost, state.holo * 0.7));
-  medallion.group.visible = state.buildX > -120 || state.holo > 0.005;
-
-  const fu = fractions.u;
-  fu.uTime.value = t;
-  fu.uShatter.value = state.shatter;
-  fu.uRingRot.value = state.ringRot;
-  fu.uEdge.value = state.edgeGlow;
-  fractions.mesh.visible = state.shatter > 0.001;
-
-  sparks.update(dt, t, state.sparkRate, sparkEmit);
-  const barH = roofAt(clamp(state.buildX, -235, 235)) + 26;
-  printBar.position.set(state.buildX - 1, barH / 2, 0);
-  printBar.scale.set(16, barH, 1);
-  barMat.opacity = state.frontier * 0.55;
-  printBar.visible = barMat.opacity > 0.01 && state.buildX > -250 && state.buildX < 260;
-  post.bloom.strength = 0.4 + state.scanI * 0.1 + state.logoLit * 0.06 + state.holo * 0.06;
+  building.update(state, t);
+  post.bloom.strength = 0.36 + state.holo * 0.1 + smoothstep(0.05, 0.5, state.shatter) * 0.08;
   post.grade.uniforms.uTime.value = t;
 }
 
@@ -335,7 +263,7 @@ function frame() {
     if (loaderBar) loaderBar.style.width = '100%';
     document.fonts.ready.then(() => {
       token.redraw();
-      medallion.redraw();
+      building.redrawAll();
       setTimeout(() => { loader.classList.add('hide'); window.__ready = true; }, 150);
     });
   }
@@ -350,7 +278,6 @@ function resize() {
 addEventListener('resize', resize);
 measure();
 resize();
-window.__info = () => ({ T: +T.toFixed(3), fps: +fps.toFixed(1), bx: +state.buildX.toFixed(0) });
+window.__info = () => ({ T: +T.toFixed(3), fps: +fps.toFixed(1), prog: +state.prog.toFixed(2), bricks: building.brickSys.count });
 window.__probe = () => ({ scale: +state.tokScale.toFixed(3) });
-if (SNAP) window.__objs = { ribbon: ribbon.mesh, hull: hull.mesh, fins: fins.mesh, interior: interior.group, printBar, dust: dust.mesh, mirror: floor.group };
 frame();

@@ -194,11 +194,11 @@ const GradeShader = {
   `,
 };
 
-export function createComposer(renderer, scene, camera) {
+export function createComposer(renderer, scene, camera, opts = {}) {
   const size = renderer.getSize(new THREE.Vector2());
   const rt = new THREE.WebGLRenderTarget(size.x, size.y, {
     type: THREE.HalfFloatType,
-    samples: 4,
+    samples: opts.samples ?? 4,
   });
   const composer = new EffectComposer(renderer, rt);
   const renderPass = new RenderPass(scene, camera);

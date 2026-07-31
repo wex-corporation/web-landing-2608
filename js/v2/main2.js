@@ -12,7 +12,8 @@ const MOBILE = matchMedia('(max-width: 820px)').matches;
 // ---------------------------------------------------------------- 부트
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-renderer.setPixelRatio(SNAP ? 1 : Math.min(devicePixelRatio, MOBILE ? 1.5 : 2));
+const BASE_PR = SNAP ? 1 : Math.min(devicePixelRatio, MOBILE ? 1.5 : 2);
+renderer.setPixelRatio(BASE_PR);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -55,7 +56,7 @@ warm.position.set(300, 260, 700);
 const fill = new THREE.HemisphereLight(0x6b7596, 0x191722, 2.0);
 scene.add(key, rim, warm, fill);
 
-const post = createComposer(renderer, scene, camera);
+const post = createComposer(renderer, scene, camera, { samples: MOBILE ? 2 : 4 });
 post.bloom.strength = 0.38;
 post.bloom.threshold = 0.9;
 
@@ -414,8 +415,34 @@ function director(t, dt) {
 
   building.update(state, t);
   coins.update(t, state.yield * (1 - sp(T, 6.9, 7.15)));
-  post.bloom.strength = 0.36 + state.holo * 0.1 + sweepI * 0.16 + smoothstep(0.05, 0.5, state.shatter) * 0.08;
+  post.bloom.strength = (0.36 + state.holo * 0.1 + sweepI * 0.16 + smoothstep(0.05, 0.5, state.shatter) * 0.08) * bloomScale;
   post.grade.uniforms.uTime.value = t;
+}
+
+// ---------------------------------------------------------------- 적응형 품질
+// 저사양 기기에서 프레임이 무너지면 단계적으로 무게를 덜어낸다.
+// 2 = 전부 / 1 = 그림자 해상도·픽셀비 축소 / 0 = 그림자 해제
+let tier = 2, slowSec = 0, bloomScale = 1;
+function applyTier() {
+  if (tier >= 2) {
+    renderer.setPixelRatio(BASE_PR);
+    renderer.shadowMap.enabled = true;
+    bloomScale = 1;
+  } else if (tier === 1) {
+    renderer.setPixelRatio(Math.min(BASE_PR, 1.15));
+    renderer.shadowMap.enabled = true;
+    if (key.shadow.map) { key.shadow.map.dispose(); key.shadow.map = null; }
+    key.shadow.mapSize.set(1024, 1024);
+    bloomScale = 0.85;
+  } else {
+    renderer.setPixelRatio(1);
+    renderer.shadowMap.enabled = false;
+    bloomScale = 0.7;
+  }
+  building.brickSys.materials.forEach((m) => (m.needsUpdate = true));
+  if (building.brickSys.depthMat) building.brickSys.depthMat.needsUpdate = true;
+  if (floor.shadowMat) floor.shadowMat.needsUpdate = true;
+  resize();
 }
 
 // ---------------------------------------------------------------- 루프
@@ -436,7 +463,14 @@ function frame() {
   uiUpdate();
   post.composer.render();
   frames++;
-  if (t - lastFpsT > 1) { fps = frames / (t - lastFpsT); frames = 0; lastFpsT = t; }
+  if (t - lastFpsT > 1) {
+    fps = frames / (t - lastFpsT); frames = 0; lastFpsT = t;
+    // 4초 이후부터 관찰 — 초기 컴파일 구간은 제외한다
+    if (!SNAP && t > 4) {
+      if (fps < 34) slowSec++; else slowSec = Math.max(0, slowSec - 1);
+      if (slowSec >= 3 && tier > 0) { tier--; applyTier(); slowSec = 0; }
+    }
+  }
   if (!started) {
     started = true;
     if (loaderBar) loaderBar.style.width = '100%';
@@ -464,6 +498,7 @@ function resize() {
 addEventListener('resize', resize);
 measure();
 resize();
-window.__info = () => ({ T: +T.toFixed(3), fps: +fps.toFixed(1), prog: +state.prog.toFixed(2), inv: +state.invest.toFixed(2), gro: +state.growth.toFixed(2), yld: +state.yield.toFixed(2) });
+window.__info = () => ({ T: +T.toFixed(3), fps: +fps.toFixed(1), tier, prog: +state.prog.toFixed(2), inv: +state.invest.toFixed(2), gro: +state.growth.toFixed(2), yld: +state.yield.toFixed(2) });
+window.__tier = (n) => { tier = clamp(n, 0, 2); applyTier(); };
 window.__probe = () => ({ scale: +state.tokScale.toFixed(3) });
 frame();

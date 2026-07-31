@@ -61,7 +61,10 @@
   <a href="#ch1" data-i="1"><span>건설</span><em>01</em><i></i></a>
   <a href="#ch2" data-i="2"><span>완공</span><em>02</em><i></i></a>
   <a href="#ch3" data-i="3"><span>조각화</span><em>03</em><i></i></a>
-  <a href="#ch4" data-i="4"><span>시작</span><em>04</em><i></i></a>
+  <a href="#ch4" data-i="4"><span>투자</span><em>04</em><i></i></a>
+  <a href="#ch5" data-i="5"><span>성장</span><em>05</em><i></i></a>
+  <a href="#ch6" data-i="6"><span>수익</span><em>06</em><i></i></a>
+  <a href="#ch7" data-i="7"><span>시작</span><em>07</em><i></i></a>
 </nav>
 
 <main>
@@ -122,11 +125,95 @@
     </div>
   </section>
 
-  <!-- 04 시작 (CTA) -->
+  <!-- 04 투자 -->
   <section class="ch" id="ch4">
     <div class="pin">
-      <div class="copy center cta">
+      <div class="copy left">
         <span class="chapno" aria-hidden="true">04</span>
+        <p class="eyebrow">CHAPTER 04 · 투자</p>
+        <h2>50,000원부터, <br/>건물의 주인이 됩니다</h2>
+        <p class="body">원하는 만큼만 담으세요. 조각 수만큼 권리가 생기고, <br/>보유 조각은 언제든 거래할 수 있습니다.</p>
+        <div class="stats">
+          <div class="stat"><b><span data-c="myfrag">0</span></b><span>보유 조각</span></div>
+          <div class="stat"><b><span data-c="myamt">0</span><small>원</small></b><span>투자금액</span></div>
+          <div class="stat"><b><span data-c="myshare">0.000</span><small>%</small></b><span>지분율</span></div>
+        </div>
+      </div>
+      <div class="wallet" id="wallet" aria-hidden="true">
+        <div class="wallet-head">
+          <svg viewBox="0 0 100 75.2" width="17" aria-hidden="true"><g fill="#9d7bff">
+            <rect x="1" y="1" width="18" height="38"/><rect x="41" y="1" width="18" height="38"/>
+            <rect x="81" y="1" width="18" height="38"/><rect x="21" y="36.2" width="18" height="38"/>
+            <rect x="61" y="36.2" width="18" height="38"/></g></svg>
+          내 지갑<em>WBL · FLAGSHIP No.0001</em>
+        </div>
+        <div class="wallet-grid">
+          <div><b><span data-c="wfrag">0</span></b><span>조각</span></div>
+          <div><b><span data-c="wval">0</span><small>원</small></b><span>평가금액</span></div>
+          <div><b class="cyan">+<span data-c="wgain">0.0</span><small>%</small></b><span>평가손익</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 성장 -->
+  <section class="ch" id="ch5">
+    <div class="pin">
+      <div class="copy right">
+        <span class="chapno" aria-hidden="true">05</span>
+        <p class="eyebrow">CHAPTER 05 · 성장</p>
+        <h2>건물이 일하는 동안, <br/>자산이 자랍니다</h2>
+        <p class="body">1층 리테일과 2·3층 오피스가 채워지고, 방문이 쌓입니다. <br/>임대 수익과 자산 가치 — 두 축이 함께 올라갑니다.</p>
+        <div class="stats">
+          <div class="stat"><b><span data-c="occ">0</span><small>%</small></b><span>임대율</span></div>
+          <div class="stat"><b><span data-c="visit">0</span></b><span>월 방문</span></div>
+          <div class="stat"><b class="cyan">+<span data-c="apprec">0.0</span><small>%</small></b><span>감정가 상승</span></div>
+        </div>
+      </div>
+      <div class="growth-panel" id="growthPanel" aria-hidden="true">
+        <div class="panel-head">감정가 추이<em>36개월</em></div>
+        <svg class="chart" viewBox="0 0 300 96" preserveAspectRatio="none" aria-hidden="true">
+          <defs><linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#9d7bff" stop-opacity="0.42"/>
+            <stop offset="100%" stop-color="#9d7bff" stop-opacity="0"/>
+          </linearGradient></defs>
+          <path id="gArea" d="" fill="url(#gfill)"/>
+          <path id="gLine" d="" fill="none" stroke="#b49bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle id="gDot" r="3.4" fill="#fff" opacity="0"/>
+        </svg>
+        <div class="panel-foot"><span>2024.01</span><b class="cyan"><span data-c="gnow">0</span>억</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 수익 -->
+  <section class="ch" id="ch6">
+    <div class="pin">
+      <div class="copy left">
+        <span class="chapno" aria-hidden="true">06</span>
+        <p class="eyebrow">CHAPTER 06 · 수익</p>
+        <h2>매달, <br/>조각 수만큼 나눠 받습니다</h2>
+        <p class="body">임대료에서 운영비를 뺀 순수익을 보유 조각 비율대로 배분합니다. <br/>배당은 매달 자동으로 지갑에 들어옵니다.</p>
+        <ul class="badges">
+          <li>월 배당</li><li>신탁 정산</li><li>자동 입금</li>
+        </ul>
+      </div>
+      <div class="earn-panel" id="earnPanel" aria-hidden="true">
+        <div class="earn-row"><span>이번 달 배당</span><b><span data-c="epay">0</span>원</b></div>
+        <div class="earn-bars" id="earnBars" aria-hidden="true"></div>
+        <div class="earn-foot">
+          <span>누적 배당</span><b><span data-c="ecum">0</span>원</b>
+          <em>연 환산 <span data-c="eyield">0.0</span>%</em>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 시작 (CTA) -->
+  <section class="ch" id="ch7">
+    <div class="pin">
+      <div class="copy center cta">
+        <span class="chapno" aria-hidden="true">07</span>
         <svg class="cta-glyph" viewBox="0 0 100 75.2" width="76" aria-hidden="true">
           <g fill="#7C4DFF">
             <rect x="1" y="1" width="18" height="38"/>
@@ -137,7 +224,7 @@
           </g>
         </svg>
         <h2>이 빌딩의 주인이 <br/>되어보세요</h2>
-        <p class="body">투자 · 성장 · 수익 — 다음 챕터가 곧 이어집니다. <br/>사전 등록하고 1호 랜드마크 공모 소식을 가장 먼저 받아보세요.</p>
+        <p class="body">건설부터 배당까지 — 방금 보신 여정을 실제로 시작할 수 있습니다. <br/>사전 등록하고 1호 랜드마크 공모 소식을 가장 먼저 받아보세요.</p>
         <div class="cta-actions">
           <a class="btn primary" href="#">사전 등록하기</a>
           <a class="btn ghost" href="#">백서 보기</a>

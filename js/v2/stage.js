@@ -13,6 +13,7 @@ export function createBackdrop() {
     uGlow: { value: new THREE.Color(0x2a1758) },
     uGlowI: { value: 0.5 },
     uStars: { value: 0.5 },
+    uMt: { value: 0.9 },
     uTime: { value: 0 },
   };
   const mat = new THREE.ShaderMaterial({
@@ -31,7 +32,7 @@ export function createBackdrop() {
     fragmentShader: /* glsl */`
       varying vec3 vDir;
       uniform vec3 uZen, uHor, uGlow;
-      uniform float uGlowI, uStars, uTime;
+      uniform float uGlowI, uStars, uTime, uMt;
       ${GLSL_COMMON}
       void main(){
         vec3 d = normalize(vDir);
@@ -43,6 +44,16 @@ export function createBackdrop() {
         // 미세 결
         float n = vnoise(vec2(atan(d.z, d.x) * 5.0, el * 11.0) + uTime * 0.004);
         col *= 0.96 + 0.08 * n;
+        // 먼 산 실루엣 — 레퍼런스 사진의 배경 능선
+        if (uMt > 0.001) {
+          float az = atan(d.z, d.x);
+          float ridge = 0.003
+            + 0.019 * (0.5 + 0.5 * sin(az * 1.6 + 0.7))
+            + 0.011 * (0.5 + 0.5 * sin(az * 3.7 + 2.4))
+            + 0.006 * (0.5 + 0.5 * sin(az * 8.1 + 1.1));
+          float m = smoothstep(ridge + 0.0018, ridge - 0.0018, el) * step(-0.015, el);
+          col = mix(col, uZen * 0.35 + uGlow * 0.13, m * uMt);
+        }
         // 절제된 별
         if (uStars > 0.001 && el > 0.03) {
           vec2 sp = vec2(atan(d.z, d.x) * 30.0, asin(clamp(d.y, -1.0, 1.0)) * 30.0);

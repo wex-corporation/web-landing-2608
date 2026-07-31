@@ -221,7 +221,7 @@ export function createPoleSign() {
   const pf = new THREE.Mesh(new THREE.PlaneGeometry(42, 21), plateMat);
   pf.position.set(0, 156, 5.0);
   group.add(pole, disc, s1, s2, plate, pf);
-  group.position.set((-4 - 17) * U, 0, (20 - 12) * U);
+  group.position.set((-7 - 17) * U, 0, (15 - 12) * U);
   return { group, redraw: () => { draw(); drawP(); }, mats: [poleMat, signMat, plateMat] };
 }
 
@@ -294,6 +294,64 @@ export function createToken(envMap) {
   return { group, mats: [rimMat, faceMat], redraw };
 }
 
+// ---------------------------------------------------------------- 배당 코인 흐름 (수익 챕터)
+// 텍스처는 하나만 만들어 N개 메시가 공유한다.
+export function createCoins(envMap, n = 9) {
+  const group = new THREE.Group();
+  const R = 15, D = 3.4;
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const redraw = () => {
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, 256, 256);
+    g.fillStyle = MARK_VIOLET;
+    g.beginPath(); g.arc(128, 128, 128, 0, 7); g.fill();
+    drawMark(g, 128, 128, 150, '#E4DCFF');
+    tex.needsUpdate = true;
+  };
+  redraw();
+  const rimMat = new THREE.MeshPhysicalMaterial({
+    color: 0x3d10a8, metalness: 0.85, roughness: 0.26, envMap, envMapIntensity: 1.2, transparent: true, opacity: 0,
+  });
+  const faceMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, opacity: 0 });
+  const rimGeo = new THREE.CylinderGeometry(R, R, D, 28);
+  const faceGeo = new THREE.CircleGeometry(R * 0.99, 28);
+  const items = [];
+  for (let i = 0; i < n; i++) {
+    const g0 = new THREE.Group();
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    rim.rotation.x = Math.PI / 2;
+    const f1 = new THREE.Mesh(faceGeo, faceMat); f1.position.z = D / 2 + 0.08;
+    const f2 = f1.clone(); f2.rotation.y = Math.PI; f2.position.z = -D / 2 - 0.08;
+    g0.add(rim, f1, f2);
+    group.add(g0);
+    items.push(g0);
+  }
+  group.visible = false;
+  return {
+    group, redraw, mats: [rimMat, faceMat],
+    update(t, amount) {
+      group.visible = amount > 0.02;
+      if (!group.visible) return;
+      for (let i = 0; i < items.length; i++) {
+        const ph = ((t * 0.13 + i / items.length) % 1);
+        const a = i * 2.39 + ph * 1.9;
+        const rad = 215 + ph * 125;
+        const g0 = items[i];
+        g0.position.set(Math.cos(a) * rad, -10 + ph * 430, Math.sin(a) * rad);
+        g0.rotation.y = t * 1.1 + i;
+        g0.rotation.x = Math.sin(t * 0.8 + i) * 0.22;
+        const fade = Math.sin(Math.PI * Math.min(ph / 0.16, 1) * 0.5) * (1 - Math.max(0, (ph - 0.72) / 0.28));
+        g0.scale.setScalar(0.55 + fade * 0.6);
+      }
+      rimMat.opacity = amount;
+      faceMat.opacity = amount;
+    },
+  };
+}
+
 // ---------------------------------------------------------------- 전체 조립
 export function createBuilding(envMap) {
   const grid = buildGrid();
@@ -355,8 +413,9 @@ export function createBuilding(envMap) {
       wordmark.mats.forEach((m) => (m.opacity = sigA));
       medallion.group.visible = sigA > 0.02;
       wordmark.mesh.visible = sigA > 0.02;
-      pole.group.visible = state.prog > 0.02 && state.shatter < 0.85;
-      pole.mats.forEach((m) => { m.transparent = true; m.opacity = Math.min(state.prog * 2.2, 1) * (1 - state.shatter); });
+      const pf = state.poleFade ?? 1;
+      pole.group.visible = state.prog > 0.02 && state.shatter < 0.85 && pf > 0.02;
+      pole.mats.forEach((m) => { m.transparent = true; m.opacity = Math.min(state.prog * 2.2, 1) * (1 - state.shatter) * pf; });
       cars.group.visible = state.cars > 0.02 && state.shatter < 0.5;
       cars.mats.forEach((m) => { m.transparent = true; m.opacity = state.cars * (1 - state.shatter * 2); });
     },

@@ -127,14 +127,10 @@ canvas#scene {
 /* ── 섹션 공통 ── */
 main { position: relative; z-index: 10; }
 section.ch { position: relative; }
-#ch0 { height: 300vh; }
-#ch1 { height: 430vh; }
-#ch2 { height: 240vh; }
-#ch3 { height: 360vh; }
-#ch4 { height: 320vh; }
-#ch5 { height: 340vh; }
-#ch6 { height: 320vh; }
-#ch7 { height: 280vh; }
+/* 모든 챕터를 같은 높이로 — 스크롤 거리당 진행 속도가 일정해야
+   챕터가 바뀔 때 갑자기 빨라지거나 느려지는 위화감이 사라진다.
+   챕터별 완급은 높이가 아니라 안쪽 타이밍 곡선으로 준다. */
+#ch0, #ch1, #ch2, #ch3, #ch4, #ch5, #ch6, #ch7 { height: 330vh; }
 .pin {
   position: sticky; top: 0; height: 100vh;
   display: flex; align-items: center;
@@ -333,6 +329,7 @@ h2 {
       rgba(3, 5, 12, 0.62) 50%, rgba(3, 5, 12, 0.24) 76%, rgba(3, 5, 12, 0) 100%);
   }
 
+  .hero-photo-img { background-position: center 44%; }
   .pin {
     height: 100svh;
     flex-direction: column; justify-content: flex-end; align-items: flex-start;
@@ -470,6 +467,7 @@ h2 {
   position: absolute; inset: 0;
   background-size: cover; background-position: center 58%;
   transform: scale(var(--zoom));
+  transform-origin: 50% 46%;
   will-change: transform, mask-image;
   -webkit-mask-image: linear-gradient(to top,
     transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));

@@ -9,18 +9,19 @@ const STUD_R = 3.0;
 const STUD_H = 2.0;
 const GAP = 0.22;        // 브릭 사이 미세 간격 (실제 레고처럼 라인이 보이게)
 
-// 머티리얼 팔레트 (레퍼런스: 트래버틴 스톤 / 우드 루버 / 다크 글래스 / 차콜)
+// 머티리얼 팔레트 — 실제 레고 모델 사진 기준
+// 콘크리트는 따뜻한 크림 화이트, 우드는 레고 'reddish brown', 유리는 속이 훤히 비친다
 export const MAT = {
   STONE: 0, WOOD: 1, GLASS: 2, DARK: 3, WHITE: 4, GREEN: 5, ASPHALT: 6, ACCENT: 7,
 };
 const COLORS = {
-  [MAT.STONE]: 0xe8dcc4,
-  [MAT.WOOD]: 0x9c6633,
-  [MAT.GLASS]: 0x24333f,
+  [MAT.STONE]: 0xefe7d6,
+  [MAT.WOOD]: 0x7d4227,
+  [MAT.GLASS]: 0x1c2733,
   [MAT.DARK]: 0x2b2f36,
   [MAT.WHITE]: 0xf6f4ee,
-  [MAT.GREEN]: 0x4a7c3f,
-  [MAT.ASPHALT]: 0x3a3d44,
+  [MAT.GREEN]: 0x4c7f3c,
+  [MAT.ASPHALT]: 0x33363c,
   [MAT.ACCENT]: 0x7c4dff,
 };
 const IS_GLASS = (m) => m === MAT.GLASS;
@@ -212,10 +213,10 @@ export function buildBrickMeshes(bricks, envMap, opts = {}) {
     envMap, envMapIntensity: 0.55,
   });
   const glass = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, roughness: 0.16, metalness: 0.0,
-    clearcoat: 0.85, clearcoatRoughness: 0.2,
-    envMap, envMapIntensity: 1.5,
-    transparent: true, opacity: 0.62,
+    color: 0xffffff, roughness: 0.14, metalness: 0.0,
+    clearcoat: 0.8, clearcoatRoughness: 0.2,
+    envMap, envMapIntensity: 1.25,
+    transparent: true, opacity: 0.34,
   });
   injectBrickAnim(opaque, u);
   injectBrickAnim(glass, u);

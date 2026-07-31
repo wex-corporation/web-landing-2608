@@ -19,9 +19,12 @@ export function buildGrid() {
   g.fill(-6, 39, -5, 28, 0, 0, MAT.ASPHALT);
   // 진입 보도 (밝은 스톤)
   g.fill(-6, 39, 24, 26, 0, 0, MAT.STONE);
-  // 조경 띠
-  g.fill(20, 33, -5, -3, 0, 0, MAT.GREEN);
-  g.fill(-6, 2, -5, -3, 0, 0, MAT.GREEN);
+  // 잔디 — 실제 레고 모델처럼 부지 둘레를 잔디가 감싼다
+  g.fill(-11, 44, -10, 31, 0, 0, MAT.GREEN);   // 잔디 판
+  g.fill(-6, 39, -5, 28, 0, 0, MAT.ASPHALT);   // 그 위에 부지를 다시 얹는다
+  g.fill(-6, 39, 24, 26, 0, 0, MAT.STONE);
+  g.fill(20, 30, -5, -4, 0, 0, MAT.GREEN);     // 안쪽 조경 띠
+  g.fill(-4, 2, -5, -4, 0, 0, MAT.GREEN);
 
   // 1층 실내 볼륨 (좌측): 스톤 벽 + 전면 유리
   g.shell(3, 16, 3, 20, 1, 5, MAT.STONE);
@@ -36,6 +39,21 @@ export function buildGrid() {
   // 코어 벽 (우측 안쪽 다크)
   g.fill(17, 19, 3, 4, 1, 5, MAT.DARK);
 
+  // 1층 실내 가구 — 유리 너머로 비친다
+  for (let i = 0; i < 4; i++) {
+    g.fill(5 + i * 3, 6 + i * 3, 12, 13, 1, 1, MAT.WOOD);    // 테이블
+    g.fill(5 + i * 3, 5 + i * 3, 15, 15, 1, 2, MAT.GREEN);   // 의자
+    g.fill(6 + i * 3, 6 + i * 3, 10, 10, 1, 2, MAT.GREEN);
+  }
+  g.fill(4, 14, 6, 7, 1, 2, MAT.DARK);                        // 카운터
+  // 2층 오피스 가구
+  for (let i = 0; i < 6; i++) {
+    g.fill(4 + i * 4, 6 + i * 4, 8, 10, 7, 7, MAT.WHITE);
+    g.fill(4 + i * 4, 4 + i * 4, 12, 12, 7, 8, MAT.DARK);
+  }
+  // 3층 라운지
+  for (let i = 0; i < 4; i++) g.fill(18 + i * 3, 19 + i * 3, 8, 10, 14, 14, MAT.WOOD);
+
   // 우드 타워 (전면 중앙, 1층~지붕 관통)
   g.fill(16, 18, 17, 20, 1, 19, MAT.WOOD);
 
@@ -49,8 +67,6 @@ export function buildGrid() {
   g.fill(2, 5, 18, 21, 7, 12, MAT.STONE);
   // 유리 사이 수직 멀리언 리듬 (다크)
   for (let x = 8; x <= 28; x += 3) g.fill(x, x, 21, 21, 7, 12, MAT.DARK);
-  // 파사드 사인 밴드 (WeBlock 워드마크가 붙는 자리)
-  g.fill(6, 15, 21, 21, 6, 6, MAT.WHITE);
 
   // ── [봉지 3] 3층 + 지붕 ─────────────────────────────
   g.fill(1, 32, 1, 22, 13, 13, MAT.STONE);     // 3층 슬래브 (캔틸레버)
@@ -221,7 +237,9 @@ export function createPoleSign() {
   const pf = new THREE.Mesh(new THREE.PlaneGeometry(42, 21), plateMat);
   pf.position.set(0, 156, 5.0);
   group.add(pole, disc, s1, s2, plate, pf);
-  group.position.set((-7 - 17) * U, 0, (15 - 12) * U);
+  // 실제 레고 모델처럼 좌측에 드라이브스루 폴 사인. 서막에서 카메라가 가까우니 살짝 작게
+  group.scale.setScalar(0.82);
+  group.position.set((-9 - 17) * U, 0, (13 - 12) * U);
   return { group, redraw: () => { draw(); drawP(); }, mats: [poleMat, signMat, plateMat] };
 }
 
@@ -361,10 +379,9 @@ export function createBuilding(envMap) {
   brickSys.meshes.forEach((m) => group.add(m));
 
   const medallion = createMedallion();
-  const wordmark = createWordmark();
   const pole = createPoleSign();
   const cars = createCars(envMap);
-  group.add(medallion.group, wordmark.mesh, pole.group, cars.group);
+  group.add(medallion.group, pole.group, cars.group);
 
   // 실내 웜 라이트 (유리 너머 밝기)
   const lampC = document.createElement('canvas'); lampC.width = lampC.height = 64;
@@ -394,8 +411,8 @@ export function createBuilding(envMap) {
   group.add(lamps);
 
   return {
-    group, brickSys, medallion, wordmark, pole, cars, lamps, lampMats,
-    redrawAll() { medallion.redraw(); wordmark.redraw(); pole.redraw(); },
+    group, brickSys, medallion, pole, cars, lamps, lampMats,
+    redrawAll() { medallion.redraw(); pole.redraw(); },
     update(state, t) {
       const bu = brickSys.u;
       bu.uTime.value = t;
@@ -410,9 +427,7 @@ export function createBuilding(envMap) {
       lamps.visible = litFade > 0.02;
       const sigA = state.sign * (1 - state.shatter);
       medallion.mats.forEach((m) => { m.transparent = true; m.opacity = sigA; });
-      wordmark.mats.forEach((m) => (m.opacity = sigA));
       medallion.group.visible = sigA > 0.02;
-      wordmark.mesh.visible = sigA > 0.02;
       const pf = state.poleFade ?? 1;
       pole.group.visible = state.prog > 0.02 && state.shatter < 0.85 && pf > 0.02;
       pole.mats.forEach((m) => { m.transparent = true; m.opacity = Math.min(state.prog * 2.2, 1) * (1 - state.shatter) * pf; });

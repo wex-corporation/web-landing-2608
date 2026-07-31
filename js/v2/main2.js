@@ -58,11 +58,11 @@ key.shadow.camera.near = 300; key.shadow.camera.far = 2100;
 key.shadow.bias = -0.0009;
 key.shadow.normalBias = 1.4;
 key.shadow.radius = 2.5;
-const rim = new THREE.DirectionalLight(0xa88cff, 0.62);
+const rim = new THREE.DirectionalLight(0x9c93cf, 0.62);
 rim.position.set(520, 300, -650);
 const warm = new THREE.DirectionalLight(0xffcc9a, 1.25);
 warm.position.set(300, 260, 700);
-const fill = new THREE.HemisphereLight(0x6b7596, 0x191722, 2.0);
+const fill = new THREE.HemisphereLight(0x78808f, 0x1b1a20, 2.0);
 scene.add(key, rim, warm, fill);
 
 const post = createComposer(renderer, scene, camera, { samples: MOBILE ? 2 : 4 });
@@ -102,7 +102,7 @@ function evalMood(T) {
   const i = clamp(Math.floor(T), 0, 7);
   // 챕터 중반까지는 그 챕터의 색을 붙잡고, 후반에 다음 챕터로 넘긴다.
   // (전 구간 선형 보간을 쓰면 어떤 챕터도 자기 색으로 앉아 있질 못한다)
-  const t = smoothstep(0.52, 0.99, sat(T - i));
+  const t = smoothstep(0.34, 0.98, sat(T - i));
   const A = MOODS[i], B = MOODS[i + 1];
   moodNow.zen.copy(A.zen).lerp(B.zen, t);
   moodNow.hor.copy(A.hor).lerp(B.hor, t);
@@ -117,18 +117,23 @@ function evalMood(T) {
 }
 
 // ---------------------------------------------------------------- 카메라
+// Catmull-Rom 을 불균일 키 간격에 맞춰 에르미트로 푼다.
+// (기존 균일 공식은 키 간격이 다를 때 그 지점에서 속도가 튀어 '덜컥'거렸다)
 function crScalar(keys, T) {
   const n = keys.length;
   let i = 0;
   while (i < n - 2 && T >= keys[i + 1][0]) i++;
-  const k0 = keys[Math.max(i - 1, 0)][1];
-  const k1 = keys[i][1];
-  const k2 = keys[i + 1][1];
-  const k3 = keys[Math.min(i + 2, n - 1)][1];
-  const t = sat((T - keys[i][0]) / (keys[i + 1][0] - keys[i][0]));
-  const t2 = t * t, t3 = t2 * t;
-  return 0.5 * ((2 * k1) + (-k0 + k2) * t + (2 * k0 - 5 * k1 + 4 * k2 - k3) * t2 + (-k0 + 3 * k1 - 3 * k2 + k3) * t3);
+  const i0 = Math.max(i - 1, 0), i3 = Math.min(i + 2, n - 1);
+  const t0 = keys[i0][0], t1 = keys[i][0], t2 = keys[i + 1][0], t3 = keys[i3][0];
+  const k0 = keys[i0][1], k1 = keys[i][1], k2 = keys[i + 1][1], k3 = keys[i3][1];
+  const dt = t2 - t1;
+  const m1 = t2 - t0 > 1e-6 ? ((k2 - k0) / (t2 - t0)) * dt : k2 - k1;
+  const m2 = t3 - t1 > 1e-6 ? ((k3 - k1) / (t3 - t1)) * dt : k2 - k1;
+  const u = sat((T - t1) / dt), u2 = u * u, u3 = u2 * u;
+  return (2 * u3 - 3 * u2 + 1) * k1 + (u3 - 2 * u2 + u) * m1
+       + (-2 * u3 + 3 * u2) * k2 + (u3 - u2) * m2;
 }
+
 // 전면 = +z. 서막은 레퍼런스 사진과 같은 정면·눈높이에서 시작해,
 // 페이지 전체에 걸쳐 한 바퀴(2π)를 돌아 마지막에 다시 정면으로 돌아온다.
 const FRONT = Math.PI / 2;
@@ -136,11 +141,11 @@ const FRONT = Math.PI / 2;
 // 우측 3/4(완공) → 좌측 3/4(투자·성장) → 다시 정면(수익·CTA) 으로 스윙한다.
 const K_AZ = [[0, FRONT], [1, 1.30], [1.5, 1.03], [2, 0.85], [2.5, 0.72], [3, 0.95], [3.55, 1.36],
   [4, 1.72], [4.6, 2.02], [5, 2.20], [5.6, 2.34], [6, 2.02], [6.6, 1.72], [7, 1.60], [8, FRONT]];
-const K_DIST = [[0, 850], [1, 620], [1.5, 640], [2, 618], [2.5, 628], [3, 820], [3.55, 920],
+const K_DIST = [[0, 470], [1, 620], [1.5, 640], [2, 618], [2.5, 628], [3, 820], [3.55, 920],
   [4, 720], [4.6, 620], [5, 700], [5.6, 810], [6, 680], [6.6, 620], [7, 790], [8, 960]];
-const K_H = [[0, 140], [1, 110], [1.5, 155], [2, 138], [2.5, 74], [3, 240], [3.55, 285],
+const K_H = [[0, 116], [1, 110], [1.5, 155], [2, 138], [2.5, 74], [3, 240], [3.55, 285],
   [4, 205], [4.6, 145], [5, 195], [5.6, 300], [6, 168], [6.6, 118], [7, 195], [8, 225]];
-const K_TY = [[0, 196], [1, 85], [1.5, 115], [2, 140], [2.5, 168], [3, 150], [3.55, 158],
+const K_TY = [[0, 152], [1, 85], [1.5, 115], [2, 140], [2.5, 168], [3, 150], [3.55, 158],
   [4, 145], [4.6, 130], [5, 142], [5.6, 152], [6, 132], [6.6, 122], [7, 140], [8, 150]];
 const K_TX = [[0, 0], [1, -40], [1.5, 0], [2, 18], [2.5, 6], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]];
 const K_FOV = [[0, 38], [1, 45], [2, 43], [3, 42], [3.55, 44], [4, 43], [5, 42], [6, 42], [7, 43], [8, 42]];
@@ -181,6 +186,8 @@ const PHOTO_SRC = 'assets/hero.jpg';
 const heroPhoto = document.getElementById('heroPhoto');
 const heroPhotoImg = document.getElementById('heroPhotoImg');
 let hasPhoto = false;
+// 세로 화면에서는 사진을 더 당겨 3D 건물 크기와 실루엣을 맞춘다
+const HERO_ZOOM = MOBILE ? 1.46 : 1.0;
 if (heroPhoto) {
   const probe = new Image();
   probe.onload = () => {
@@ -202,14 +209,14 @@ const headLines = copies.map((el) => {
 });
 
 const FADE = [
-  [-1, 0.0001, 0.5, 0.78],
-  [0.05, 0.16, 0.86, 0.97],
-  [0.08, 0.2, 0.84, 0.97],
-  [0.05, 0.16, 0.86, 0.97],
-  [0.06, 0.18, 0.86, 0.97],
-  [0.06, 0.18, 0.86, 0.97],
-  [0.06, 0.18, 0.86, 0.97],
-  [0.1, 0.3, 2, 3],
+  [-1, 0.0001, 0.52, 0.8],
+  [0.02, 0.13, 0.88, 0.99],
+  [0.03, 0.15, 0.87, 0.99],
+  [0.02, 0.13, 0.88, 0.99],
+  [0.02, 0.13, 0.88, 0.99],
+  [0.02, 0.13, 0.88, 0.99],
+  [0.02, 0.13, 0.88, 0.99],
+  [0.06, 0.24, 2, 3],
 ];
 // 챕터별 데이터 패널 (투자 지갑 / 성장 차트 / 수익 배당)
 const panels = [
@@ -351,7 +358,7 @@ function director(t, dt) {
     if (live) {
       heroPhoto.style.setProperty('--wipe', sweepE.toFixed(4));
       heroPhoto.style.setProperty('--scan', sweepI.toFixed(3));
-      heroPhoto.style.setProperty('--zoom', (1 + 0.055 * sat(T / 0.62)).toFixed(4));
+      heroPhoto.style.setProperty('--zoom', (HERO_ZOOM + 0.055 * sat(T / 0.62)).toFixed(4));
       heroPhoto.style.opacity = (1 - sp(T, 0.6, 0.72)).toFixed(3);
     }
   }

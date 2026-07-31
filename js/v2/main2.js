@@ -181,6 +181,17 @@ if (heroPhoto) {
   };
   probe.src = PHOTO_SRC;
 }
+// 헤드라인을 줄 단위로 감싸 마스크 안에서 차례로 올라오게 한다
+const headLines = copies.map((el) => {
+  if (!el) return null;
+  const h = el.querySelector('h1, h2');
+  if (!h) return null;
+  const parts = h.innerHTML.split(/<br\s*\/?>/i).map((x) => x.trim()).filter(Boolean);
+  if (parts.length < 1) return null;
+  h.innerHTML = parts.map((p) => `<span class="ln"><i>${p}</i></span>`).join('');
+  return [...h.querySelectorAll('.ln > i')];
+});
+
 const FADE = [
   [-1, 0.0001, 0.5, 0.78],
   [0.05, 0.16, 0.86, 0.97],
@@ -232,8 +243,15 @@ function uiUpdate() {
     const vIn = sp(l, a, b), vOut = 1 - sp(l, c2, d);
     const o = vIn * vOut;
     el.style.opacity = o.toFixed(3);
-    el.style.transform = `translateY(${((1 - vIn) * 30 - (1 - vOut) * 26).toFixed(2)}px)`;
+    el.style.transform = `translateY(${((1 - vIn) * 22 - (1 - vOut) * 26).toFixed(2)}px)`;
     el.style.visibility = o < 0.005 ? 'hidden' : 'visible';
+    const lns = headLines[i];
+    if (lns) {
+      for (let k = 0; k < lns.length; k++) {
+        const e = easeOutCubic(sat((vIn - k * 0.13) / 0.72));
+        lns[k].style.transform = `translate3d(0,${((1 - e) * 106).toFixed(1)}%,0)`;
+      }
+    }
   }
   railLinks.forEach((lnk, i) => lnk.classList.toggle('on', i === li));
   if (railEl) railEl.style.setProperty('--p', (T / 8).toFixed(4));

@@ -212,8 +212,8 @@ export function buildBrickMeshes(bricks, envMap, opts = {}) {
     envMap, envMapIntensity: 0.55,
   });
   const glass = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, roughness: 0.12, metalness: 0.0,
-    clearcoat: 1.0, clearcoatRoughness: 0.15,
+    color: 0xffffff, roughness: 0.16, metalness: 0.0,
+    clearcoat: 0.85, clearcoatRoughness: 0.2,
     envMap, envMapIntensity: 1.5,
     transparent: true, opacity: 0.62,
   });

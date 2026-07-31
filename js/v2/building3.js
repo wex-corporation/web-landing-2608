@@ -389,8 +389,8 @@ export function createBuilding(envMap) {
   for (let i = 0; i < 14; i++) put(4.5 + i * 0.85, 3.2, 10 + (i % 4) * 3, 15);     // 1F
   for (let i = 0; i < 18; i++) put(4 + i * 1.6, 9.6, 7 + (i % 5) * 3.2, 17);      // 2F
   for (let i = 0; i < 14; i++) put(8 + i * 1.6, 16.6, 8 + (i % 4) * 3.2, 16);     // 3F
-  for (let i = 0; i < 7; i++) put(19 + i * 2.4, 4.8, 11 + (i % 2) * 6, 20);       // 필로티 다운라이트
-  for (let i = 0; i < 4; i++) put(22 + i * 3.5, 1.6, 21, 16);                     // 주차 바닥 워시
+  for (let i = 0; i < 7; i++) put(19 + i * 2.4, 4.8, 11 + (i % 2) * 6, 13);       // 필로티 다운라이트
+  for (let i = 0; i < 4; i++) put(22 + i * 3.5, 1.6, 21, 11);                     // 주차 바닥 워시
   group.add(lamps);
 
   return {

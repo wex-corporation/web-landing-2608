@@ -24,6 +24,15 @@ const camera = new THREE.PerspectiveCamera(43, innerWidth / innerHeight, 2, 9000
 camera.position.set(500, 150, 500);
 const REF_ASPECT = 1.6;
 
+// 포인터 패럴랙스: 커서를 따라 시점이 미세하게 기운다 (터치에서는 동작 안 함)
+const ptr = { x: 0, y: 0, tx: 0, ty: 0 };
+if (!SNAP && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+  addEventListener('pointermove', (e) => {
+    ptr.tx = (e.clientX / innerWidth) * 2 - 1;
+    ptr.ty = (e.clientY / innerHeight) * 2 - 1;
+  }, { passive: true });
+}
+
 const envMap = buildEnvironment(renderer);
 
 const backdrop = createBackdrop();
@@ -81,7 +90,7 @@ const MOODS = [
   // 04 투자 — 차분한 인디고, 판단의 시간
   { zen: C(0x04061a), hor: C(0x161b45), glow: C(0x3f47b4), gI: 0.78, stars: 0.6, exp: 1.06, k: 3.2, w: 0.9, r: 0.85 },
   // 05 성장 — 밤이 걷히고 낮이 온다 (시간의 경과)
-  { zen: C(0x0d1730), hor: C(0x44577a), glow: C(0x9ab0d6), gI: 0.85, stars: 0.04, exp: 1.18, k: 4.0, w: 1.5, r: 0.5 },
+  { zen: C(0x0d1730), hor: C(0x44577a), glow: C(0x9ab0d6), gI: 0.85, stars: 0.04, exp: 1.16, k: 3.2, w: 1.4, r: 0.5 },
   // 06 수익 — 황금빛 결실
   { zen: C(0x0a0810), hor: C(0x3a2a18), glow: C(0xd8933f), gI: 1.0, stars: 0.12, exp: 1.18, k: 2.9, w: 2.05, r: 0.45 },
   // 07 시작 — 깊은 남색, 다시 밤
@@ -356,9 +365,9 @@ function director(t, dt) {
   const lit = easeInOutSine(sp(T, 2.05, 2.55)) * (1 - sp(T, 3.3, 3.7) * 0.8) + sp(T, 4.2, 4.6) * 0.8;
   // 성장 챕터는 낮이다 — 실내 조명이 그대로면 창이 하얗게 날아간다
   const daylight = sp(T, 5.1, 5.7) * (1 - sp(T, 5.95, 6.3));
-  state.interiorI = Math.min(Math.max(lit, hero * 0.95), 1) * (1 - 0.85 * daylight);
+  state.interiorI = Math.min(Math.max(lit, hero * 0.95), 1) * (1 - 0.93 * daylight);
   // 폴 사인은 완공까지의 안내물 — 이후 카메라가 크게 돌면 카피를 가리므로 걷는다
-  state.poleFade = 1 - sp(T, 4.3, 4.9);
+  state.poleFade = 1 - sp(T, 3.85, 4.35);
   state.sign = Math.max(hero, sp(T, 1.9, 2.35));
   state.cars = Math.max(hero, sp(T, 2.0, 2.45));
 
@@ -403,6 +412,12 @@ function director(t, dt) {
   if (!REDUCED) {
     camera.position.x += Math.sin(t * 0.3) * 1.2;
     camera.position.y += Math.sin(t * 0.22 + 2) * 0.9;
+    const k = 1 - Math.exp(-dt * 3.4);
+    ptr.x += (ptr.tx - ptr.x) * k;
+    ptr.y += (ptr.ty - ptr.y) * k;
+    const side = tmpC.set(-Math.sin(az), 0, Math.cos(az));
+    camera.position.addScaledVector(side, ptr.x * 26);
+    camera.position.y -= ptr.y * 16;
   }
   tmpB.set(tx, ty, 0);
   camera.lookAt(tmpB);

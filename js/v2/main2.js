@@ -13,6 +13,8 @@ const MOBILE = matchMedia('(max-width: 820px)').matches;
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(SNAP ? 1 : Math.min(devicePixelRatio, MOBILE ? 1.5 : 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -30,14 +32,26 @@ const building = createBuilding(envMap);
 const token = createToken(envMap);
 scene.add(backdrop.mesh, floor.group, dust.mesh, building.group, token.group);
 
+// 대기 원근 — 뒤쪽 브릭이 살짝 물러나 보이게
+scene.fog = new THREE.FogExp2(0x0a0a16, 0.00042);
+
 // 스튜디오 라이트
-const key = new THREE.DirectionalLight(0xfbf8ff, 2.5);
+const key = new THREE.DirectionalLight(0xfbf8ff, 3.3);
 key.position.set(-620, 620, 700);
-const rim = new THREE.DirectionalLight(0xa88cff, 0.35);
+// 키 라이트만 그림자를 만든다 — 브릭끼리의 자기그림자가 입체감의 8할
+key.castShadow = true;
+key.shadow.mapSize.set(MOBILE ? 1024 : 2048, MOBILE ? 1024 : 2048);
+key.shadow.camera.left = -340; key.shadow.camera.right = 340;
+key.shadow.camera.top = 340; key.shadow.camera.bottom = -340;
+key.shadow.camera.near = 300; key.shadow.camera.far = 2100;
+key.shadow.bias = -0.0009;
+key.shadow.normalBias = 1.4;
+key.shadow.radius = 2.5;
+const rim = new THREE.DirectionalLight(0xa88cff, 0.62);
 rim.position.set(520, 300, -650);
 const warm = new THREE.DirectionalLight(0xffcc9a, 1.25);
 warm.position.set(300, 260, 700);
-const fill = new THREE.HemisphereLight(0x5b6480, 0x14121a, 1.5);
+const fill = new THREE.HemisphereLight(0x6b7596, 0x191722, 2.0);
 scene.add(key, rim, warm, fill);
 
 const post = createComposer(renderer, scene, camera);
@@ -50,18 +64,23 @@ camera.layers.enable(1);
 
 // ---------------------------------------------------------------- 무드
 const C = (h) => new THREE.Color(h);
+// 컬러 스크립트 — 챕터마다 감정이 분명히 달라지도록 색·빛을 함께 움직인다.
+//   서막 밤 → 건설 푸른 새벽 → 완공 골든아워 → 조각화 전기 바이올렛 → CTA 깊은 남색
+// k/w/r = 키·웜·림 라이트 세기
 const MOODS = [
-  { zen: C(0x020208), hor: C(0x140d2a), glow: C(0x2a1758), gI: 0.55, stars: 0.55, exp: 1.0 },
-  { zen: C(0x030210), hor: C(0x18102c), glow: C(0x3a2060), gI: 0.6, stars: 0.6, exp: 1.0 },
-  { zen: C(0x0a0a14), hor: C(0x242030), glow: C(0xa06a44), gI: 0.72, stars: 0.35, exp: 1.1 },
-  { zen: C(0x050414), hor: C(0x201435), glow: C(0x4c2a7e), gI: 0.85, stars: 0.7, exp: 1.0 },
-  { zen: C(0x0a0a16), hor: C(0x262234), glow: C(0x94603c), gI: 0.72, stars: 0.4, exp: 1.1 },
-  { zen: C(0x0a0a16), hor: C(0x262234), glow: C(0x94603c), gI: 0.72, stars: 0.4, exp: 1.1 },
+  { zen: C(0x02030c), hor: C(0x0e1030), glow: C(0x241a5e), gI: 0.52, stars: 0.75, exp: 1.0, k: 3.0, w: 1.0, r: 0.6 },
+  { zen: C(0x02040e), hor: C(0x101c3a), glow: C(0x21407a), gI: 0.6, stars: 0.62, exp: 1.02, k: 3.4, w: 0.7, r: 0.75 },
+  { zen: C(0x0b0912), hor: C(0x33221c), glow: C(0xc47a48), gI: 0.95, stars: 0.18, exp: 1.22, k: 2.7, w: 2.4, r: 0.5 },
+  { zen: C(0x05041a), hor: C(0x241040), glow: C(0x6a2ce0), gI: 1.0, stars: 0.8, exp: 1.03, k: 3.0, w: 0.55, r: 1.15 },
+  { zen: C(0x05060f), hor: C(0x1b1c3c), glow: C(0x6a4a9e), gI: 0.8, stars: 0.55, exp: 1.12, k: 3.1, w: 1.3, r: 0.8 },
+  { zen: C(0x05060f), hor: C(0x1b1c3c), glow: C(0x6a4a9e), gI: 0.8, stars: 0.55, exp: 1.12, k: 3.1, w: 1.3, r: 0.8 },
 ];
-const moodNow = { zen: new THREE.Color(), hor: new THREE.Color(), glow: new THREE.Color(), gI: 0, stars: 0, exp: 1 };
+const moodNow = { zen: new THREE.Color(), hor: new THREE.Color(), glow: new THREE.Color(), gI: 0, stars: 0, exp: 1, k: 3, w: 1, r: 0.6 };
 function evalMood(T) {
   const i = clamp(Math.floor(T), 0, 4);
-  const t = easeInOutSine(sat(T - i));
+  // 챕터 중반까지는 그 챕터의 색을 붙잡고, 후반에 다음 챕터로 넘긴다.
+  // (전 구간 선형 보간을 쓰면 어떤 챕터도 자기 색으로 앉아 있질 못한다)
+  const t = smoothstep(0.52, 0.99, sat(T - i));
   const A = MOODS[i], B = MOODS[i + 1];
   moodNow.zen.copy(A.zen).lerp(B.zen, t);
   moodNow.hor.copy(A.hor).lerp(B.hor, t);
@@ -69,6 +88,9 @@ function evalMood(T) {
   moodNow.gI = lerp(A.gI, B.gI, t);
   moodNow.stars = lerp(A.stars, B.stars, t);
   moodNow.exp = lerp(A.exp, B.exp, t);
+  moodNow.k = lerp(A.k, B.k, t);
+  moodNow.w = lerp(A.w, B.w, t);
+  moodNow.r = lerp(A.r, B.r, t);
   return moodNow;
 }
 
@@ -87,9 +109,9 @@ function crScalar(keys, T) {
 }
 // 전면 = +z. 레퍼런스 사진과 같은 3/4 앵글(전면-우측)에서 완공 샷
 const K_AZ = [[0, 1.15], [1, 1.0], [1.5, 0.86], [2, 0.72], [2.5, 0.66], [3, 0.9], [3.55, 1.4], [4, 3.4], [4.5, 5.6], [5, 7.5]];
-const K_DIST = [[0, 1010], [1, 620], [1.5, 640], [2, 620], [2.5, 660], [3, 820], [3.55, 920], [4, 1040], [4.5, 1150], [5, 950]];
-const K_H = [[0, 205], [1, 110], [1.5, 155], [2, 170], [2.5, 165], [3, 240], [3.55, 285], [4, 235], [4.5, 250], [5, 205]];
-const K_TY = [[0, 208], [1, 85], [1.5, 115], [2, 132], [2.5, 132], [3, 150], [3.55, 158], [4, 142], [5, 138]];
+const K_DIST = [[0, 1010], [1, 620], [1.5, 640], [2, 600], [2.5, 585], [3, 820], [3.55, 920], [4, 1040], [4.5, 1150], [5, 950]];
+const K_H = [[0, 205], [1, 110], [1.5, 155], [2, 138], [2.5, 74], [3, 240], [3.55, 285], [4, 235], [4.5, 250], [5, 205]];
+const K_TY = [[0, 208], [1, 85], [1.5, 115], [2, 140], [2.5, 168], [3, 150], [3.55, 158], [4, 142], [5, 138]];
 const K_TX = [[0, 0], [1, -40], [1.5, 0], [2, 30], [2.5, 20], [3, 0], [4, 0], [5, 0]];
 const K_FOV = [[0, 40], [1, 45], [2, 43], [3, 42], [3.55, 44], [4, 44], [5, 42]];
 
@@ -118,6 +140,7 @@ window.__seek = (t) => {
 
 // ---------------------------------------------------------------- UI
 const copies = sections.map((s) => s.querySelector('.copy'));
+const railEl = document.getElementById('rail');
 const railLinks = [...document.querySelectorAll('.rail a')];
 const counters = {};
 document.querySelectorAll('[data-c]').forEach((el) => (counters[el.dataset.c] = el));
@@ -158,6 +181,7 @@ function uiUpdate() {
     el.style.visibility = o < 0.005 ? 'hidden' : 'visible';
   }
   railLinks.forEach((lnk, i) => lnk.classList.toggle('on', i === li));
+  if (railEl) railEl.style.setProperty('--p', (T / 5).toFixed(4));
   set('prog', Math.round(state.prog * 100));
   set('bricks', fmtKR(Math.round(building.brickSys.count * state.prog)));
   set('frag', fmtKR(100000 * easeOutExpo(sp(T, 3.28, 3.92))));
@@ -231,6 +255,8 @@ function director(t, dt) {
   floor.groundU.uFar.value.copy(M.zen).multiplyScalar(0.6);
   floor.groundU.uHaze.value.copy(M.hor).multiplyScalar(0.95).add(tmpCol.copy(M.glow).multiplyScalar(0.22 * M.gI));
   floor.groundU.uGlow.value.copy(M.glow);
+  scene.fog.color.copy(M.hor).lerp(M.zen, 0.35);
+  key.intensity = M.k; warm.intensity = M.w; rim.intensity = M.r;
   dust.u.uTime.value = t;
   dust.u.uStr.value = 0.3 + smoothstep(0.1, 0.9, state.shatter) * 0.45;
 

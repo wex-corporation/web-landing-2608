@@ -111,7 +111,7 @@ export class BrickGrid {
 }
 
 // ---------------------------------------------------------------- 브릭 셰이더 주입
-function injectBrickAnim(mat, u) {
+function injectBrickAnim(mat, u, isDepth = false) {
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
@@ -128,10 +128,7 @@ function injectBrickAnim(mat, u) {
         vec3 gPos; float gAng; float gHide;
         mat2 rot2b(float a){ float s = sin(a), c = cos(a); return mat2(c, -s, s, c); }
         float easeIO3(float t){ return t < 0.5 ? 4.0*t*t*t : 1.0 - pow(-2.0*t + 2.0, 3.0) / 2.0; }
-      `)
-      .replace('#include <beginnormal_vertex>', /* glsl */`
-        #include <beginnormal_vertex>
-        {
+        void wbCompute(){
           // ── 조립 (아래→위, 스태거)
           float p = clamp((uProg * 1.18 - aOrder) / 0.14, 0.0, 1.0);
           float e = 1.0 - pow(1.0 - p, 3.0);
@@ -155,16 +152,22 @@ function injectBrickAnim(mat, u) {
             vFly = max(vFly, se);
           }
           gPos = pos; gAng = ang;
-          objectNormal.xz = rot2b(gAng) * objectNormal.xz;
         }
+      `)
+      .replace('#include <beginnormal_vertex>', /* glsl */`
+        #include <beginnormal_vertex>
+        wbCompute();
+        objectNormal.xz = rot2b(gAng) * objectNormal.xz;
       `)
       .replace('#include <begin_vertex>', /* glsl */`
         #include <begin_vertex>
+        wbCompute();
         transformed.xz = rot2b(gAng) * transformed.xz;
         transformed += gPos;
         vBandY = transformed.y;
         if (gHide > 0.5 || aTgt.x > uReveal + 9000.0) transformed = vec3(0.0);
       `);
+    if (isDepth) return;   // 깊이 패스는 정점 변형만 동일하면 된다
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', /* glsl */`
         #include <common>
@@ -175,6 +178,9 @@ function injectBrickAnim(mat, u) {
       `)
       .replace('#include <emissivemap_fragment>', /* glsl */`
         #include <emissivemap_fragment>
+        // 플라스틱 모서리 광택 — 브릭이 딱딱한 입체로 읽히게 한다
+        float wbF = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.5);
+        totalEmissiveRadiance += vec3(0.80, 0.84, 1.0) * wbF * 0.085;
         totalEmissiveRadiance += vec3(0.42, 0.30, 1.0) * vFly * 0.4;
         totalEmissiveRadiance += vec3(0.35, 0.24, 0.9) * uGhostB * 0.5;
         // 형광 보라 스윕: 건물을 한 번 감싸고 지나가는 높이 밴드
@@ -182,7 +188,7 @@ function injectBrickAnim(mat, u) {
         totalEmissiveRadiance += vec3(0.48, 0.22, 1.0) * uSweepI * exp(-sd * sd);
       `);
   };
-  mat.customProgramCacheKey = () => 'weblock-brick-v2' + (mat.transparent ? '-g' : '');
+  mat.customProgramCacheKey = () => 'weblock-brick-v3' + (isDepth ? '-d' : mat.transparent ? '-g' : '');
 }
 
 // ---------------------------------------------------------------- 빌드
@@ -213,6 +219,9 @@ export function buildBrickMeshes(bricks, envMap, opts = {}) {
   });
   injectBrickAnim(opaque, u);
   injectBrickAnim(glass, u);
+  // 그림자 패스용 깊이 머티리얼 — 같은 정점 변형을 써야 그림자가 몸을 따라온다
+  const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  injectBrickAnim(depthMat, u, true);
 
   // 정렬: 아래→위, 같은 층은 안쪽→바깥쪽
   bricks.sort((a, b) => (a.y - b.y) || (Math.abs(a.x - 16) + Math.abs(a.z - 12)) - (Math.abs(b.x - 16) + Math.abs(b.z - 12)));
@@ -236,6 +245,9 @@ export function buildBrickMeshes(bricks, envMap, opts = {}) {
     const geo = brickGeometry(len);
     const mesh = new THREE.InstancedMesh(geo, isG ? glass : opaque, list.length);
     mesh.frustumCulled = false;
+    mesh.castShadow = !isG;          // 유리는 그림자를 만들지 않는다
+    mesh.receiveShadow = true;
+    mesh.customDepthMaterial = depthMat;
     if (isG) mesh.renderOrder = 3;
     const aTgt = new Float32Array(list.length * 3);
     const aScat = new Float32Array(list.length * 3);
@@ -278,5 +290,5 @@ export function buildBrickMeshes(bricks, envMap, opts = {}) {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     meshes.push(mesh);
   }
-  return { meshes, u, materials: [opaque, glass], count: N };
+  return { meshes, u, materials: [opaque, glass], depthMat, count: N };
 }

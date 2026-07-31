@@ -128,7 +128,16 @@ export function createFloor() {
   ground.position.y = 0;
   group.add(ground);
 
-  return { group, groundU: u };
+  // 그림자 캐처: 그림자가 진 곳만 어두워지는 투명 평면 (지면 그라디언트는 그대로 살린다)
+  const shadowMat = new THREE.ShadowMaterial({ color: 0x05040c, opacity: 0.44, transparent: true });
+  const catcher = new THREE.Mesh(new THREE.CircleGeometry(1100, 64), shadowMat);
+  catcher.rotation.x = -Math.PI / 2;
+  catcher.position.y = 0.4;
+  catcher.receiveShadow = true;
+  catcher.renderOrder = 1;
+  group.add(catcher);
+
+  return { group, groundU: u, shadowMat };
 }
 
 // ---------------------------------------------------------------- 부유 먼지

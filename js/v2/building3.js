@@ -199,7 +199,7 @@ export function createPoleSign() {
   disc.rotation.x = Math.PI / 2; disc.position.y = 200;
   // 하단 안내 플레이트
   const plate = new THREE.Mesh(new THREE.BoxGeometry(44, 26, 5), poleMat);
-  plate.position.y = 156;
+  plate.position.set(0, 156, 2.2);
   const pc = document.createElement('canvas');
   pc.width = 256; pc.height = 128;
   const ptex = new THREE.CanvasTexture(pc);
@@ -219,7 +219,7 @@ export function createPoleSign() {
   drawP();
   const plateMat = new THREE.MeshBasicMaterial({ map: ptex, transparent: true, toneMapped: false });
   const pf = new THREE.Mesh(new THREE.PlaneGeometry(42, 21), plateMat);
-  pf.position.set(0, 156, 2.8);
+  pf.position.set(0, 156, 5.0);
   group.add(pole, disc, s1, s2, plate, pf);
   group.position.set((-4 - 17) * U, 0, (20 - 12) * U);
   return { group, redraw: () => { draw(); drawP(); }, mats: [poleMat, signMat, plateMat] };

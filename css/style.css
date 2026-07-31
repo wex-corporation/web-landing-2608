@@ -44,7 +44,22 @@ canvas#scene {
   transition: opacity 0.7s ease, visibility 0.7s;
 }
 .loader.hide { opacity: 0; visibility: hidden; }
-.loader-glyph { animation: pulse 1.6s ease-in-out infinite; }
+/* 로더도 '조립'이다 — 다섯 블록이 순서대로 떨어져 마크를 완성한다 */
+.loader-glyph rect {
+  transform-box: fill-box; transform-origin: center;
+  animation: brickdrop 2.1s cubic-bezier(0.22, 0.9, 0.24, 1) infinite;
+}
+.loader-glyph rect:nth-child(1) { animation-delay: 0s; }
+.loader-glyph rect:nth-child(2) { animation-delay: 0.09s; }
+.loader-glyph rect:nth-child(3) { animation-delay: 0.18s; }
+.loader-glyph rect:nth-child(4) { animation-delay: 0.27s; }
+.loader-glyph rect:nth-child(5) { animation-delay: 0.36s; }
+@keyframes brickdrop {
+  0%   { transform: translateY(-46px); opacity: 0; }
+  26%  { transform: translateY(0); opacity: 1; }
+  82%  { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(0); opacity: 0.15; }
+}
 .loader-word { font-weight: 800; letter-spacing: 0.42em; font-size: 13px; color: var(--sub); padding-left: 0.42em; }
 .loader-bar { width: 148px; height: 2px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
 .loader-bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--violet), var(--gold)); transition: width 0.3s ease; }
@@ -70,23 +85,43 @@ canvas#scene {
 }
 .brand-cta:hover { border-color: rgba(157, 123, 255, 0.55); background: rgba(124, 77, 255, 0.1); }
 
-/* ── 챕터 레일 ── */
+/* ── 챕터 레일 (진행 게이지) ── */
 .rail {
-  position: fixed; right: clamp(14px, 2.6vw, 36px); top: 50%; transform: translateY(-50%);
-  z-index: 40; display: flex; flex-direction: column; gap: 16px;
+  position: fixed; right: clamp(16px, 2.6vw, 40px); top: 50%; transform: translateY(-50%);
+  z-index: 40; display: flex; flex-direction: column;
+  --p: 0;
 }
-.rail a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: row-reverse; }
+.rail::before, .rail::after {
+  content: ''; position: absolute; right: 3px; top: 0; width: 1px; pointer-events: none;
+}
+.rail::before { bottom: 0; background: rgba(255, 255, 255, 0.11); }
+.rail::after {
+  height: calc(var(--p) * 100%);
+  background: linear-gradient(180deg, var(--cyan), var(--violet));
+  box-shadow: 0 0 10px rgba(157, 123, 255, 0.85);
+}
+.rail a {
+  position: relative; height: 44px; padding-right: 16px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 9px;
+  text-decoration: none;
+}
 .rail i {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: rgba(255,255,255,0.22);
-  transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+  position: absolute; right: 0; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ink); border: 1px solid rgba(255, 255, 255, 0.22);
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s, background 0.3s;
+}
+.rail em {
+  font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.26); font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
 }
 .rail span {
   font-size: 11px; color: var(--sub); opacity: 0; transform: translateX(6px);
-  transition: opacity 0.3s, transform 0.3s; letter-spacing: 0.08em;
+  transition: opacity 0.3s, transform 0.3s; letter-spacing: 0.08em; white-space: nowrap;
 }
 .rail a:hover span { opacity: 1; transform: none; }
-.rail a.on i { background: var(--cyan); box-shadow: 0 0 12px rgba(157,123,255,0.95); transform: scale(1.25); }
+.rail a.on i { background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 12px rgba(157, 123, 255, 0.95); transform: scale(1.15); }
+.rail a.on em { color: var(--text); }
 .rail a.on span { opacity: 1; transform: none; color: var(--text); }
 
 /* ── 섹션 공통 ── */
@@ -117,15 +152,32 @@ section.ch { position: relative; }
 .copy.hero { max-width: 880px; }
 .copy.hero::before { inset: -76px -118px -120px; }
 .copy.left { margin-right: auto; }
-.copy.right { margin-left: auto; text-align: right; }
+.copy.right { margin-left: auto; margin-right: clamp(0px, 3.4vw, 58px); text-align: right; }
 .copy.center { margin: 0 auto; text-align: center; }
 .copy.low { align-self: flex-end; margin-bottom: 11vh; }
 
 .eyebrow {
-  font-size: 12.5px; font-weight: 700; letter-spacing: 0.34em; color: var(--cyan);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.3em; color: var(--cyan);
   text-transform: uppercase; margin-bottom: 18px;
+  display: flex; align-items: center; gap: 14px;
 }
-.copy.right .eyebrow { letter-spacing: 0.34em; }
+.eyebrow::before {
+  content: ''; width: 30px; height: 1px; flex: 0 0 auto;
+  background: currentColor; opacity: 0.55;
+}
+.copy.right .eyebrow { justify-content: flex-end; }
+.copy.center .eyebrow { justify-content: center; }
+
+/* 챕터 번호 워터마크 — 카피 뒤에 크게 깔리는 아웃라인 숫자 */
+.chapno {
+  position: absolute; z-index: -1; pointer-events: none; user-select: none;
+  top: -0.42em; left: -0.06em;
+  font-size: clamp(120px, 15vw, 210px); font-weight: 850; line-height: 1;
+  letter-spacing: -0.05em; color: transparent;
+  -webkit-text-stroke: 1px rgba(157, 123, 255, 0.16);
+}
+.copy.right .chapno { left: auto; right: -0.06em; }
+.copy.center .chapno { left: 50%; transform: translateX(-50%); }
 h1 {
   font-size: clamp(38px, 5.6vw, 76px); font-weight: 850; line-height: 1.12;
   letter-spacing: -0.02em; text-wrap: balance;
@@ -294,9 +346,14 @@ h2 {
   .logo em { display: none; }
   .logo span { font-size: 13px; }
   .brand-cta { font-size: 12.5px; padding: 8px 14px; }
-  .rail { right: 10px; gap: 12px; }
+  .rail { right: 9px; }
   .rail span { display: none; }
+  .rail a { height: 36px; padding-right: 13px; }
   .rail i { width: 6px; height: 6px; }
+  .rail em { font-size: 9px; }
+  .chapno { font-size: 96px; top: -0.36em; }
+  .copy.center .chapno, .copy.right .chapno { left: -0.06em; right: auto; transform: none; }
+  .eyebrow::before { width: 20px; }
   .stage-badge { top: 64px; font-size: 10.5px; letter-spacing: 0.22em; padding: 7px 13px; }
 }
 
@@ -334,7 +391,7 @@ h2 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scroll-hint i, .loader-glyph { animation: none; }
+  .scroll-hint i, .loader-glyph rect { animation: none; }
 }
 
 /* ── 서막 실사 레이어 ── */

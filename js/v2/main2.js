@@ -229,13 +229,14 @@ const gLine = document.getElementById('gLine');
 const gArea = document.getElementById('gArea');
 const gDot = document.getElementById('gDot');
 if (gLine) {
-  const N = 24, W = 300, H = 96;
+  // 실제 월 순매출 (백만원, 부가세 제외) — 투자제안서 2026.05
+  const SALES = [128, 121, 118, 124, 137, 141, 149, 152, 168, 195, 158, 147, 133, 126, 122, 129, 140, 146];
+  const N = SALES.length, W = 300, H = 96;
+  const lo = 100, hi = 205;
   let d = '', da = `M 0 ${H} `;
   for (let i = 0; i < N; i++) {
     const x = (i / (N - 1)) * W;
-    const base = 0.16 + Math.pow(i / (N - 1), 1.25) * 0.66;
-    const wob = Math.sin(i * 1.7) * 0.035 + Math.sin(i * 0.6 + 1.2) * 0.022;
-    const y = H - (base + wob) * H;
+    const y = H - ((SALES[i] - lo) / (hi - lo)) * (H - 8) - 4;
     d += (i ? 'L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
     da += 'L ' + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
   }
@@ -275,20 +276,17 @@ function uiUpdate() {
   set('bricks', fmtKR(Math.round(building.brickSys.count * state.prog)));
   set('frag', fmtKR(100000 * easeOutExpo(sp(T, 3.28, 3.92))));
 
-  // 04 투자
+  // 04 투자 — 1조각 66,900원 (66.9억 ÷ 100,000조각), 예시 보유 24조각
   const iv = state.invest;
-  set('myfrag', fmtKR(24 * iv));
-  set('myamt', fmtKR(1200000 * iv));
-  set('myshare', (0.024 * iv).toFixed(3));
   set('wfrag', fmtKR(24 * iv));
-  set('wval', fmtKR(1200000 * iv));
-  set('wgain', (0.0 + 8.3 * state.growth).toFixed(1));
-  // 05 성장
+  set('wval', fmtKR(1605600 * iv));
+  set('wshare', (0.024 * iv).toFixed(3));
+  // 05 성장 — 2025년 순매출 17.1억, 월 평균 1.43억, 공시지가 +15.4%
   const gr = state.growth;
-  set('occ', Math.round(100 * gr));
-  set('visit', fmtKR(12400 * gr));
-  set('apprec', (8.3 * gr).toFixed(1));
-  set('gnow', (168 + 14 * gr).toFixed(0));
+  set('gsales', (17.1 * gr).toFixed(1));
+  set('gmonth', (1.43 * gr).toFixed(2));
+  set('gland', (15.4 * gr).toFixed(1));
+  set('gnow', (1.43 * gr).toFixed(2));
   if (gLine) {
     const len = gLine.getTotalLength ? gLine.getTotalLength() : 320;
     gLine.style.strokeDasharray = len;
@@ -300,11 +298,11 @@ function uiUpdate() {
       gDot.setAttribute('opacity', Math.min(gr * 3, 1));
     } else if (gDot) gDot.setAttribute('opacity', 0);
   }
-  // 06 수익
+  // 06 수익 — NOI 이자 10년 누적 25.44억 ÷ 100,000조각 ÷ 120개월 = 조각당 월 212원
   const yd = state.yield;
-  set('epay', fmtKR(8400 * yd));
-  set('ecum', fmtKR(100800 * yd));
-  set('eyield', (8.4 * yd).toFixed(1));
+  set('epay', fmtKR(5088 * yd));
+  set('ecum', fmtKR(610560 * yd));
+  set('eyield', (6.56 * yd).toFixed(2));
   for (let i = 0; i < earnBarEls.length; i++) {
     const k = sat((yd - i * 0.055) / 0.3);
     const h = 0.34 + 0.66 * (i / (earnBarEls.length - 1)) + Math.sin(i * 1.9) * 0.07;

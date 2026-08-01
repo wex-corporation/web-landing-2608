@@ -1,4 +1,4 @@
-// v2 디렉터 — WeBlock 플래그십 (브릭 조립 → 완공 → 조각화 → CTA)
+// v2 디렉터 — WeBlock 플래그십 (준공된 자산: 해체 → 구조 → 조각화 → 배당 → CTA)
 import * as THREE from 'three';
 import { createBackdrop, buildEnvironment, createFloor, createDust } from './stage.js';
 import { createBuilding, createToken, createCoins, W_HEIGHT } from './building3.js';
@@ -77,20 +77,20 @@ camera.layers.enable(1);
 // ---------------------------------------------------------------- 무드
 const C = (h) => new THREE.Color(h);
 // 컬러 스크립트 — 챕터마다 감정이 분명히 달라지도록 색·빛을 함께 움직인다.
-//   서막 밤 → 건설 푸른 새벽 → 완공 골든아워 → 조각화 전기 바이올렛 → CTA 깊은 남색
+//   서막 밤 → 구조 푸른 새벽 → 자산 골든아워 → 조각화 전기 바이올렛 → CTA 깊은 남색
 // k/w/r = 키·웜·림 라이트 세기
 const MOODS = [
   // 00 서막 — 레퍼런스 사진과 같은 밤. 하늘은 거의 검고 실내만 따뜻하다
   { zen: C(0x010208), hor: C(0x0a0c22), glow: C(0x1c1648), gI: 0.42, stars: 0.8, exp: 1.03, k: 3.0, w: 1.6, r: 0.5 },
-  // 01 건설 — 차가운 새벽, 작업의 시간
+  // 01 구조 — 차가운 새벽, 해부의 시간
   { zen: C(0x02040e), hor: C(0x101c3a), glow: C(0x21407a), gI: 0.6, stars: 0.62, exp: 1.02, k: 3.4, w: 0.7, r: 0.75 },
-  // 02 완공 — 골든아워, 감정의 정점
+  // 02 자산 — 골든아워, 감정의 정점
   { zen: C(0x0b0912), hor: C(0x33221c), glow: C(0xc47a48), gI: 0.95, stars: 0.18, exp: 1.22, k: 2.7, w: 2.4, r: 0.5 },
   // 03 조각화 — 전기 바이올렛
   { zen: C(0x05041a), hor: C(0x241040), glow: C(0x6a2ce0), gI: 1.0, stars: 0.8, exp: 1.03, k: 3.0, w: 0.55, r: 1.15 },
   // 04 투자 — 차분한 인디고, 판단의 시간
   { zen: C(0x04061a), hor: C(0x161b45), glow: C(0x3f47b4), gI: 0.78, stars: 0.6, exp: 1.06, k: 3.2, w: 0.9, r: 0.85 },
-  // 05 성장 — 밤이 걷히고 낮이 온다 (시간의 경과)
+  // 05 실적 — 밤이 걷히고 낮이 온다 (지나온 18개월)
   { zen: C(0x0d1730), hor: C(0x44577a), glow: C(0x9ab0d6), gI: 0.85, stars: 0.04, exp: 1.16, k: 3.2, w: 1.4, r: 0.5 },
   // 06 수익 — 황금빛 결실
   { zen: C(0x0a0810), hor: C(0x3a2a18), glow: C(0xd8933f), gI: 1.0, stars: 0.12, exp: 1.18, k: 2.9, w: 2.05, r: 0.45 },
@@ -327,7 +327,7 @@ function uiUpdate() {
     stageBadge.style.opacity = on ? '1' : '0';
     if (on) {
       const bag = clamp(Math.floor(state.prog * 3) + 1, 1, 3);
-      stageBadge.textContent = `BAG ${String(bag).padStart(2, '0')} / 03`;
+      stageBadge.textContent = `LAYER ${String(bag).padStart(2, '0')} / 03`;
     }
   }
 }
@@ -345,9 +345,9 @@ const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.V
 function director(t, dt) {
   // 서막: 첫 화면부터 완성된 랜드마크를 보여준다.
   // 스크롤을 내리면 그 건물이 위에서부터 블록으로 풀리고(hero 1→0),
-  // 곧바로 같은 블록이 다시 쌓이며(build 0→1) 건설 챕터로 이어진다 — 컷 없이 한 동작.
+  // 곧바로 같은 블록이 다시 쌓이며(build 0→1) 구조 챕터로 이어진다 — 컷 없이 한 동작.
   // 0.00~0.20 실사 사진 → 0.20~0.52 형광 보라 스윕이 훑고 지나가며 레고로 치환
-  // → 0.52~0.70 완성된 레고 → 0.70~0.98 위에서부터 해체 → 1.0~ 재조립(건설)
+  // → 0.52~0.70 완성된 레고 → 0.70~0.98 위에서부터 해체 → 1.0~ 층별 재조립(구조)
   const sweep = sp(T, 0.20, 0.52);
   const sweepE = easeInOutSine(sweep);
   const sweepI = Math.sin(Math.PI * sweep);
@@ -369,12 +369,12 @@ function director(t, dt) {
   state.prog = T < 1 ? hero : T >= 2 ? 1 : buildRaw;
   state.holo = 0;
 
-  // 완공: 실내 점등 + 사인 + 자동차 (서막에서도 완공 상태로 보여준다)
+  // 운영 중: 실내 점등 + 사인 + 자동차 (서막에서도 준공 상태로 보여준다)
   const lit = easeInOutSine(sp(T, 2.05, 2.55)) * (1 - sp(T, 3.3, 3.7) * 0.8) + sp(T, 4.2, 4.6) * 0.8;
   // 성장 챕터는 낮이다 — 실내 조명이 그대로면 창이 하얗게 날아간다
   const daylight = sp(T, 5.1, 5.7) * (1 - sp(T, 5.95, 6.3));
   state.interiorI = Math.min(Math.max(lit, hero * 0.95), 1) * (1 - 0.93 * daylight);
-  // 폴 사인은 완공까지의 안내물 — 이후 카메라가 크게 돌면 카피를 가리므로 걷는다
+  // 폴 사인은 자산 챕터까지의 안내물 — 이후 카메라가 크게 돌면 카피를 가리므로 걷는다
   state.poleFade = 1 - sp(T, 3.85, 4.35);
   state.sign = Math.max(hero, sp(T, 1.9, 2.35));
   state.cars = Math.max(hero, sp(T, 2.0, 2.45));

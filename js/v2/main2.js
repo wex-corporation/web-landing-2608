@@ -417,6 +417,10 @@ function director(t, dt) {
   // 세로 화면: 건물 폭(±170)이 항상 화면 안에 들어오는 최소 거리를 보장한다
   if (camera.aspect < 1.15) {
     dist = Math.max(dist, HALF_W / (Math.tan(fv * Math.PI / 360) * camera.aspect));
+    // 세로 화면은 '위 = 건물 / 아래 = 글'로 나눈다.
+    // 서막은 실사 사진의 프레이밍을 따라가야 하므로 덜 밀고, 1챕터부터 상단 밴드로 올린다.
+    const shift = lerp(0.13, 0.27, easeInOutSine(sat((T - 0.55) / 0.55)));
+    camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * shift, innerWidth, innerHeight);
   }
   const hgt = crScalar(K_H, T);
   const tx = crScalar(K_TX, T);
@@ -529,12 +533,7 @@ function frame() {
 function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  // 세로 화면: 건물을 화면 위쪽으로 밀어 아래 절반을 카피 영역으로 비워둔다
-  if (camera.aspect < 1.05) {
-    camera.setViewOffset(innerWidth, innerHeight, 0, Math.round(innerHeight * 0.15), innerWidth, innerHeight);
-  } else {
-    camera.clearViewOffset();
-  }
+  if (camera.aspect >= 1.15) camera.clearViewOffset();
   renderer.setSize(innerWidth, innerHeight);
   post.setSize(innerWidth, innerHeight);
   measure();

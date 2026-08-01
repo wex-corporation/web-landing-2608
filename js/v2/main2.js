@@ -23,6 +23,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(43, innerWidth / innerHeight, 2, 9000);
 camera.position.set(500, 150, 500);
 const REF_ASPECT = 1.6;
+const HALF_W = 188;   // 건물 반폭 170 + 여유
 
 // 포인터 패럴랙스: 커서를 따라 시점이 미세하게 기운다 (터치에서는 동작 안 함)
 const ptr = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -187,7 +188,7 @@ const heroPhoto = document.getElementById('heroPhoto');
 const heroPhotoImg = document.getElementById('heroPhotoImg');
 let hasPhoto = false;
 // 세로 화면에서는 사진을 더 당겨 3D 건물 크기와 실루엣을 맞춘다
-const HERO_ZOOM = MOBILE ? 1.46 : 1.0;
+const HERO_ZOOM = 1.0;
 if (heroPhoto) {
   const probe = new Image();
   probe.onload = () => {
@@ -229,14 +230,16 @@ const gLine = document.getElementById('gLine');
 const gArea = document.getElementById('gArea');
 const gDot = document.getElementById('gDot');
 if (gLine) {
-  // 실제 월 순매출 (백만원, 부가세 제외) — 투자제안서 2026.05
+  // 실제 월 순매출 (백만원, 부가세 제외) — 투자제안서 2026.05. 누적으로 쌓아 보여준다
   const SALES = [128, 121, 118, 124, 137, 141, 149, 152, 168, 195, 158, 147, 133, 126, 122, 129, 140, 146];
   const N = SALES.length, W = 300, H = 96;
-  const lo = 100, hi = 205;
+  let acc = 0;
+  const CUM = SALES.map((v) => (acc += v));
+  const top = CUM[N - 1];
   let d = '', da = `M 0 ${H} `;
   for (let i = 0; i < N; i++) {
     const x = (i / (N - 1)) * W;
-    const y = H - ((SALES[i] - lo) / (hi - lo)) * (H - 8) - 4;
+    const y = H - (CUM[i] / top) * (H - 10) - 4;
     d += (i ? 'L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
     da += 'L ' + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
   }
@@ -286,7 +289,7 @@ function uiUpdate() {
   set('gsales', (17.1 * gr).toFixed(1));
   set('gmonth', (1.43 * gr).toFixed(2));
   set('gland', (15.4 * gr).toFixed(1));
-  set('gnow', (1.43 * gr).toFixed(2));
+  set('gnow', (25.3 * gr).toFixed(1));
   if (gLine) {
     const len = gLine.getTotalLength ? gLine.getTotalLength() : 320;
     gLine.style.strokeDasharray = len;
@@ -405,11 +408,16 @@ function director(t, dt) {
 
   // 카메라
   const az = crScalar(K_AZ, T);
+  // 화각을 먼저 확정해야 '좌우 잘림 방지' 최소 거리를 계산할 수 있다
+  const fv = crScalar(K_FOV, T);
+  if (Math.abs(camera.fov - fv) > 0.01) { camera.fov = fv; camera.updateProjectionMatrix(); }
   // 세로 화면일수록 가로 화각이 좁아지므로 거리로 보정 (기준 16:10)
   const aspectScale = camera.aspect < REF_ASPECT ? Math.min(Math.sqrt(REF_ASPECT / camera.aspect), 1.74) : 1;
-  // 세로 화면 서막은 카피가 아래로 빠지므로 건물을 조금 더 당겨 크게 보여준다
-  const heroPull = camera.aspect < 1.05 ? 1 - 0.22 * (1 - sat(T)) : 1;
-  const dist = crScalar(K_DIST, T) * aspectScale * heroPull;
+  let dist = crScalar(K_DIST, T) * aspectScale;
+  // 세로 화면: 건물 폭(±170)이 항상 화면 안에 들어오는 최소 거리를 보장한다
+  if (camera.aspect < 1.15) {
+    dist = Math.max(dist, HALF_W / (Math.tan(fv * Math.PI / 360) * camera.aspect));
+  }
   const hgt = crScalar(K_H, T);
   const tx = crScalar(K_TX, T);
   const ty = crScalar(K_TY, T);
@@ -426,8 +434,6 @@ function director(t, dt) {
   }
   tmpB.set(tx, ty, 0);
   camera.lookAt(tmpB);
-  const fv = crScalar(K_FOV, T);
-  if (Math.abs(camera.fov - fv) > 0.01) { camera.fov = fv; camera.updateProjectionMatrix(); }
   camera.updateMatrixWorld();
 
   // 히어로 토큰

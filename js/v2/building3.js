@@ -407,10 +407,9 @@ export function createBuilding(envMap) {
   const group = new THREE.Group();
   brickSys.meshes.forEach((m) => group.add(m));
 
-  const medallion = createMedallion();
   const pole = createPoleSign();
   const cars = createCars(envMap);
-  group.add(medallion.group, pole.group, cars.group);
+  group.add(pole.group, cars.group);
 
   // 실내 웜 라이트 (유리 너머 밝기)
   const lampC = document.createElement('canvas'); lampC.width = lampC.height = 64;
@@ -444,8 +443,8 @@ export function createBuilding(envMap) {
   group.add(lamps);
 
   return {
-    group, brickSys, medallion, pole, cars, lamps, lampMats,
-    redrawAll() { medallion.redraw(); pole.redraw(); },
+    group, brickSys, pole, cars, lamps, lampMats,
+    redrawAll() { pole.redraw(); },
     update(state, t) {
       const bu = brickSys.u;
       bu.uTime.value = t;
@@ -458,9 +457,6 @@ export function createBuilding(envMap) {
       const litFade = state.interiorI;
       lampMats.forEach((m, i) => (m.opacity = litFade * (0.5 + 0.5 * Math.sin(t * 0.7 + i))));
       lamps.visible = litFade > 0.02;
-      const sigA = state.sign * (1 - state.shatter);
-      medallion.mats.forEach((m) => { m.transparent = true; m.opacity = sigA; });
-      medallion.group.visible = sigA > 0.02;
       const pf = state.poleFade ?? 1;
       pole.group.visible = state.prog > 0.02 && state.shatter < 0.85 && pf > 0.02;
       pole.mats.forEach((m) => { m.transparent = true; m.opacity = Math.min(state.prog * 2.2, 1) * (1 - state.shatter) * pf; });

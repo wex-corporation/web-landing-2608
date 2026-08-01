@@ -23,7 +23,6 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(43, innerWidth / innerHeight, 2, 9000);
 camera.position.set(500, 150, 500);
 const REF_ASPECT = 1.6;
-const HALF_W = 188;   // 건물 반폭 170 + 여유
 
 // 포인터 패럴랙스: 커서를 따라 시점이 미세하게 기운다 (터치에서는 동작 안 함)
 const ptr = { x: 0, y: 0, tx: 0, ty: 0 };
@@ -186,17 +185,57 @@ const stageBadge = document.getElementById('stageBadge');
 const PHOTO_SRC = 'assets/hero.jpg';
 const heroPhoto = document.getElementById('heroPhoto');
 const heroPhotoImg = document.getElementById('heroPhotoImg');
-let hasPhoto = false;
-// 세로 화면에서는 사진을 더 당겨 3D 건물 크기와 실루엣을 맞춘다
-const HERO_ZOOM = 1.0;
+let hasPhoto = false, photoW = 0, photoH = 0;
+// 사진 안에서 건물 본체가 차지하는 사각형(원본 픽셀 기준).
+// 좌: 본체 좌측면 / 우: 우측 캔틸레버 끝 / 상: 지붕 앞날 / 하: 건물이 땅에 닿는 선.
+// (좌측 별동과 주차장은 뺀다 — 3D 매싱의 실루엣과 같은 범위여야 한다)
+const PHOTO_MASS = { x0: 186, y0: 551, x1: 1037, y1: 1146, W: 1206, H: 1812 };
 if (heroPhoto) {
   const probe = new Image();
   probe.onload = () => {
     hasPhoto = true;
+    photoW = probe.naturalWidth || PHOTO_MASS.W;
+    photoH = probe.naturalHeight || PHOTO_MASS.H;
     heroPhotoImg.style.backgroundImage = `url("${PHOTO_SRC}")`;
     heroPhoto.classList.add('on');
   };
   probe.src = PHOTO_SRC;
+}
+
+// ── 실사 ↔ 브릭 정합 ──────────────────────────────────────────
+// 사진과 레고가 '같은 자리에 같은 크기로' 서 있어야 보라 스윕이 지나갈 때
+// 한 건물이 재질만 바뀌는 것처럼 보인다. 그래서 사진을 화면에 고정하지 않고,
+// 매 프레임 3D 건물의 정면 실루엣을 화면에 투영해 그 사각형에 사진을 맞춘다.
+// → 카메라를 움직이든 화면비가 바뀌든 둘은 절대 어긋나지 않는다.
+const _pv = new THREE.Vector3();
+const heroRect = { x0: 0, y0: 0, x1: 0, y1: 0 };
+function projectMassFront() {
+  const m = building.mass;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  // 사진에 찍힌 것은 정면이므로 앞면(z = z1) 네 모서리만 투영한다
+  for (const x of [m.x0, m.x1]) {
+    for (const y of [m.y0, m.y1]) {
+      _pv.set(x, y, m.z1).project(camera);
+      const sx = (_pv.x * 0.5 + 0.5) * innerWidth;
+      const sy = (-_pv.y * 0.5 + 0.5) * innerHeight;
+      if (sx < x0) x0 = sx; if (sx > x1) x1 = sx;
+      if (sy < y0) y0 = sy; if (sy > y1) y1 = sy;
+    }
+  }
+  heroRect.x0 = x0; heroRect.y0 = y0; heroRect.x1 = x1; heroRect.y1 = y1;
+  return heroRect;
+}
+function fitHeroPhoto() {
+  const r = projectMassFront();
+  const pm = PHOTO_MASS;
+  // 지붕~지면 높이를 맞춘다 — 층 슬래브 위치가 가장 잘 겹치는 기준
+  const s = (r.y1 - r.y0) / ((pm.y1 - pm.y0) * (photoH / pm.H));
+  const dw = photoW * s, dh = photoH * s;
+  // 가로는 건물 중심, 세로는 '땅에 닿는 선'에 앵커 (스윕이 아래에서 위로 올라오므로)
+  const bx = (r.x0 + r.x1) / 2 - (pm.x0 + pm.x1) / 2 * (photoW / pm.W) * s;
+  const by = r.y1 - pm.y1 * (photoH / pm.H) * s;
+  heroPhotoImg.style.backgroundSize = `${dw.toFixed(1)}px ${dh.toFixed(1)}px`;
+  heroPhotoImg.style.backgroundPosition = `${bx.toFixed(1)}px ${by.toFixed(1)}px`;
 }
 // 헤드라인을 줄 단위로 감싸 마스크 안에서 차례로 올라오게 한다
 const headLines = copies.map((el) => {
@@ -346,25 +385,22 @@ function director(t, dt) {
   // 서막: 첫 화면부터 완성된 랜드마크를 보여준다.
   // 스크롤을 내리면 그 건물이 위에서부터 블록으로 풀리고(hero 1→0),
   // 곧바로 같은 블록이 다시 쌓이며(build 0→1) 구조 챕터로 이어진다 — 컷 없이 한 동작.
-  // 0.00~0.20 실사 사진 → 0.20~0.52 형광 보라 스윕이 훑고 지나가며 레고로 치환
-  // → 0.52~0.70 완성된 레고 → 0.70~0.98 위에서부터 해체 → 1.0~ 층별 재조립(구조)
-  const sweep = sp(T, 0.20, 0.52);
+  // 0.00~0.14 실사 사진 → 0.14~0.60 형광 보라 밴드가 건물을 훑고 지나가며 레고로 치환
+  // → 0.60~0.72 완성된 레고 → 0.72~1.00 위에서부터 해체 → 1.0~ 층별 재조립(구조)
+  const sweep = sp(T, 0.14, 0.60);
   const sweepE = easeInOutSine(sweep);
   const sweepI = Math.sin(Math.PI * sweep);
-  state.sweepY = lerp(-70, 350, sweepE);
-  state.sweepI = sweepI * 1.0;
+  state.sweepI = sweepI * 1.0;   // sweepY 는 카메라 확정 후 화면 기준으로 계산한다
+  const photoLive = hasPhoto && T < 0.68;
   if (hasPhoto) {
-    const live = T < 0.76;
-    heroPhoto.classList.toggle('on', live);
-    if (live) {
-      heroPhoto.style.setProperty('--wipe', sweepE.toFixed(4));
+    heroPhoto.classList.toggle('on', photoLive);
+    if (photoLive) {
       heroPhoto.style.setProperty('--scan', sweepI.toFixed(3));
-      heroPhoto.style.setProperty('--zoom', (HERO_ZOOM + 0.055 * sat(T / 0.62)).toFixed(4));
-      heroPhoto.style.opacity = (1 - sp(T, 0.6, 0.72)).toFixed(3);
+      heroPhoto.style.opacity = (1 - sp(T, 0.60, 0.67)).toFixed(3);
     }
   }
 
-  const hero = 1 - easeInOutSine(sp(T, 0.70, 0.98));
+  const hero = 1 - easeInOutSine(sp(T, 0.72, 1.0));
   const buildRaw = easeInOutSine(sp(T, 1.0, 1.92));
   state.prog = T < 1 ? hero : T >= 2 ? 1 : buildRaw;
   state.holo = 0;
@@ -374,8 +410,10 @@ function director(t, dt) {
   // 성장 챕터는 낮이다 — 실내 조명이 그대로면 창이 하얗게 날아간다
   const daylight = sp(T, 5.1, 5.7) * (1 - sp(T, 5.95, 6.3));
   state.interiorI = Math.min(Math.max(lit, hero * 0.95), 1) * (1 - 0.93 * daylight);
-  // 폴 사인은 자산 챕터까지의 안내물 — 이후 카메라가 크게 돌면 카피를 가리므로 걷는다
-  state.poleFade = 1 - sp(T, 3.85, 4.35);
+  // 폴 사인은 자산 챕터까지의 안내물 — 이후 카메라가 크게 돌면 카피를 가리므로 걷는다.
+  // 서막에는 세우지 않는다: 실사에 없는 물건이라 치환이 끝난 뒤에 올라와야 자연스럽다.
+  // 세로 화면에서는 건물을 꽉 채워 잡으므로 폴이 늘 화면 밖으로 잘린다 — 아예 세우지 않는다
+  state.poleFade = camera.aspect < 1.15 ? 0 : sp(T, 0.62, 0.92) * (1 - sp(T, 3.85, 4.35));
   state.sign = Math.max(hero, sp(T, 1.9, 2.35));
   state.cars = Math.max(hero, sp(T, 2.0, 2.45));
 
@@ -414,18 +452,59 @@ function director(t, dt) {
   // 세로 화면일수록 가로 화각이 좁아지므로 거리로 보정 (기준 16:10)
   const aspectScale = camera.aspect < REF_ASPECT ? Math.min(Math.sqrt(REF_ASPECT / camera.aspect), 1.74) : 1;
   let dist = crScalar(K_DIST, T) * aspectScale;
-  // 세로 화면: 건물 폭(±170)이 항상 화면 안에 들어오는 최소 거리를 보장한다
-  if (camera.aspect < 1.15) {
-    dist = Math.max(dist, HALF_W / (Math.tan(fv * Math.PI / 360) * camera.aspect));
-    // 세로 화면은 '위 = 건물 / 아래 = 글'로 나눈다.
-    // 서막은 실사 사진의 프레이밍을 따라가야 하므로 덜 밀고, 1챕터부터 상단 밴드로 올린다.
-    const shift = lerp(0.13, 0.27, easeInOutSine(sat((T - 0.55) / 0.55)));
-    camera.setViewOffset(innerWidth, innerHeight, 0, innerHeight * shift, innerWidth, innerHeight);
-  }
+  const portrait = camera.aspect < 1.15;
+  // 세로 화면은 '위 = 건물 / 아래 = 글'로 나눈다.
+  let offY = portrait ? innerHeight * lerp(0.21, 0.28, easeInOutSine(sat((T - 0.55) / 0.55))) : 0;
   const hgt = crScalar(K_H, T);
   const tx = crScalar(K_TX, T);
   const ty = crScalar(K_TY, T);
-  camera.position.set(Math.cos(az) * dist, hgt, Math.sin(az) * dist);
+  const place = (d) => {
+    camera.position.set(Math.cos(az) * d, hgt, Math.sin(az) * d);
+    tmpB.set(tx, ty, 0);
+    camera.lookAt(tmpB);
+    camera.updateMatrixWorld();
+  };
+  const setOffY = (oy) => {
+    if (Math.abs(oy) > 0.5) camera.setViewOffset(innerWidth, innerHeight, 0, oy, innerWidth, innerHeight);
+    else camera.clearViewOffset();
+  };
+
+  // ── 서막 프레이밍 ──────────────────────────────────────────
+  // 실사 사진은 이 건물 상자에 맞춰 앉는다. 그러니 서막에서는 건물 전체가
+  // 화면의 정해진 밴드에 정확히 들어와야 사진과 브릭이 같은 자리에 선다.
+  // (기기·화면비가 달라도 프레이밍이 같아지므로 치환이 늘 성립한다)
+  const pro = 1 - easeInOutSine(sat((T - 0.60) / 0.40));
+  if (pro > 0.002) {
+    const band = portrait ? [0.13, 0.45] : [0.10, 0.63];
+    camera.clearViewOffset();
+    let d = dist;
+    place(d);
+    for (let i = 0; i < 5; i++) {
+      const r = projectMassFront();
+      // 세로·가로 중 더 빡빡한 쪽에 맞춘다
+      const k = Math.max((r.y1 - r.y0) / innerHeight / (band[1] - band[0]),
+                         (r.x1 - r.x0) / innerWidth / 0.90);
+      if (Math.abs(k - 1) < 0.004) break;
+      d += (d - building.mass.z1) * (k - 1);
+      place(d);
+    }
+    const r = projectMassFront();
+    dist = lerp(dist, d, pro);
+    offY = lerp(offY, r.y0 - band[0] * innerHeight, pro);
+  }
+
+  // 건물이 화면 좌우로 잘리지 않는 최소 거리를 실제 투영으로 역산한다.
+  // (예전의 '반폭 ÷ tan' 근사는 앞면이 카메라에 더 가깝다는 걸 못 봐서 잘렸다)
+  setOffY(offY);
+  const pad = innerWidth * (portrait ? 0.05 : 0.004);
+  place(dist);
+  for (let i = 0; i < 4; i++) {
+    const w = projectMassFront();
+    const over = Math.max(pad - w.x0, w.x1 - (innerWidth - pad), 0) * 2 / innerWidth;
+    if (over < 0.004) break;
+    dist += (dist - building.mass.z1) * over;   // 폭 ∝ 1/(거리 − 앞면깊이)
+    place(dist);
+  }
   if (!REDUCED) {
     camera.position.x += Math.sin(t * 0.3) * 1.2;
     camera.position.y += Math.sin(t * 0.22 + 2) * 0.9;
@@ -435,10 +514,33 @@ function director(t, dt) {
     const side = tmpC.set(-Math.sin(az), 0, Math.cos(az));
     camera.position.addScaledVector(side, ptr.x * 26);
     camera.position.y -= ptr.y * 16;
+    tmpB.set(tx, ty, 0);
+    camera.lookAt(tmpB);
+    camera.updateMatrixWorld();
   }
-  tmpB.set(tx, ty, 0);
-  camera.lookAt(tmpB);
-  camera.updateMatrixWorld();
+
+  // 카메라가 확정된 뒤에 사진을 그 위에 겹친다 (한 프레임도 어긋나지 않게)
+  if (photoLive) fitHeroPhoto();
+  else projectMassFront();
+
+  // 치환 경계선. 화면을 등속으로 훑으면 건물을 스치듯 지나가 버리므로
+  // '아래 여백 → 건물 → 위 여백' 세 구간으로 나누고 건물 구간에 시간을 몰아준다.
+  {
+    const H = innerHeight;
+    const top = heroRect.y0, bot = heroRect.y1;
+    const soft = Math.max((bot - top) * 0.2, 40);
+    const seg = (a, b, u) => lerp(a, b, easeInOutSine(sat(u)));
+    const edgeY = sweepE < 0.14 ? seg(H + soft, bot, sweepE / 0.14)
+      : sweepE < 0.9 ? seg(bot, top, (sweepE - 0.14) / 0.76)
+        : seg(top, -soft, (sweepE - 0.9) / 0.1);
+    if (photoLive) {
+      heroPhoto.style.setProperty('--edge', `${(H - edgeY).toFixed(1)}px`);
+      heroPhoto.style.setProperty('--soft', `${soft.toFixed(1)}px`);
+    }
+    // 브릭 위를 훑는 보라 밴드도 같은 줄에 둔다. 어긋나면 '빛이 지나가며
+    // 재질이 바뀐다'가 아니라 '두 장면이 겹쳤다'로 보인다.
+    state.sweepY = (bot - edgeY) / Math.max(bot - top, 1) * building.mass.y1;
+  }
 
   // 히어로 토큰
   const tokIn = easeOutCubic(sp(T, 3.5, 3.78));
@@ -533,7 +635,6 @@ function frame() {
 function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  if (camera.aspect >= 1.15) camera.clearViewOffset();
   renderer.setSize(innerWidth, innerHeight);
   post.setSize(innerWidth, innerHeight);
   measure();
@@ -544,5 +645,13 @@ resize();
 window.__info = () => ({ T: +T.toFixed(3), fps: +fps.toFixed(1), tier, prog: +state.prog.toFixed(2), inv: +state.invest.toFixed(2), gro: +state.growth.toFixed(2), yld: +state.yield.toFixed(2) });
 window.__brickCount = () => building.brickSys.count;
 window.__tier = (n) => { tier = clamp(n, 0, 2); applyTier(); };
-window.__probe = () => ({ scale: +state.tokScale.toFixed(3) });
+window.__probe = () => {
+  const r = projectMassFront();
+  return {
+    scale: +state.tokScale.toFixed(3),
+    // 건물 정면 실루엣이 화면에서 차지하는 비율 — 실사/브릭 정합과 잘림 확인용
+    bx: [+(r.x0 / innerWidth).toFixed(3), +(r.x1 / innerWidth).toFixed(3)],
+    by: [+(r.y0 / innerHeight).toFixed(3), +(r.y1 / innerHeight).toFixed(3)],
+  };
+};
 frame();

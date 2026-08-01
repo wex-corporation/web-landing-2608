@@ -407,6 +407,18 @@ export function createBuilding(envMap) {
   const group = new THREE.Group();
   brickSys.meshes.forEach((m) => group.add(m));
 
+  // 건물 본체(부지판 y=0 제외)의 실루엣 상자.
+  // 서막에서 실사 사진을 이 상자에 정확히 맞춰 앉히므로, 매싱을 고치면 사진도 따라온다.
+  const mass = { x0: Infinity, x1: -Infinity, y1: -Infinity, z1: -Infinity };
+  for (const b of bricks) {
+    if (b.y < 1) continue;                     // 잔디·아스팔트 판은 건물이 아니다
+    mass.x0 = Math.min(mass.x0, (b.x - ORIGIN_X) * U);
+    mass.x1 = Math.max(mass.x1, (b.x + b.len - ORIGIN_X) * U);
+    mass.y1 = Math.max(mass.y1, (b.y + 1) * BH);
+    mass.z1 = Math.max(mass.z1, (b.z + 1 - ORIGIN_Z) * U);
+  }
+  mass.y0 = 0;                                 // 사진의 기준선과 같은 '땅에 닿는 선'
+
   const pole = createPoleSign();
   const cars = createCars(envMap);
   group.add(pole.group, cars.group);
@@ -443,7 +455,7 @@ export function createBuilding(envMap) {
   group.add(lamps);
 
   return {
-    group, brickSys, pole, cars, lamps, lampMats,
+    group, brickSys, pole, cars, lamps, lampMats, mass,
     redrawAll() { pole.redraw(); },
     update(state, t) {
       const bu = brickSys.u;

@@ -329,7 +329,6 @@ h2 {
       rgba(3, 5, 12, 0.66) 58%, rgba(3, 5, 12, 0.24) 82%, rgba(3, 5, 12, 0) 100%);
   }
 
-  .hero-photo-img { background-position: center 44%; }
   /* 화면을 위아래로 나눈다 — 위는 건물, 아래는 글과 그래프.
      padding-top 이 곧 3D 전용 밴드의 높이다. */
   .pin {
@@ -458,24 +457,29 @@ h2 {
 }
 
 /* ── 서막 실사 레이어 ── */
-/* 캔버스(z0) 위, 카피(z10) 아래. --wipe 0→1 로 아래에서 위로 사진이 벗겨지고
-   그 경계를 형광 보라 밴드가 훑고 지나간다. */
+/* 캔버스(z0) 위, 카피(z10) 아래. 보라 밴드가 아래에서 위로 훑고 지나가며
+   사진이 벗겨지고 그 자리에 브릭이 남는다.
+   --edge(화면 아래에서 잰 경계선 높이)·--soft(경계 두께)는 main2.js 가 써 넣는다.
+   경계를 화면 비율이 아니라 '건물이 차지한 구간'에 맞추므로,
+   밴드가 건물을 지나는 데 대부분의 시간을 쓴다 — 그래야 치환이 보인다. */
 .hero-photo {
   position: fixed; inset: 0; z-index: 3;
   pointer-events: none; opacity: 0; visibility: hidden;
-  --wipe: 0; --scan: 0; --zoom: 1;
+  --edge: 200vh; --soft: 80px; --scan: 0;
 }
 .hero-photo.on { visibility: visible; }
+/* 사진은 화면을 채우는 게 아니라 3D 건물의 실루엣에 맞춰 앉는다.
+   size/position 은 main2.js 의 fitHeroPhoto() 가 매 프레임 써 넣는다.
+   원본 사진의 여백이 완전한 검정이라 배경색으로 이어 붙여도 경계가 보이지 않는다. */
 .hero-photo-img {
   position: absolute; inset: 0;
-  background-size: cover; background-position: center 58%;
-  transform: scale(var(--zoom));
-  transform-origin: 50% 46%;
-  will-change: transform, mask-image;
+  background-repeat: no-repeat;
+  background-color: #000;
+  will-change: mask-image;
   -webkit-mask-image: linear-gradient(to top,
-    transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));
+    transparent 0 calc(var(--edge) - var(--soft)), #000 var(--edge));
   mask-image: linear-gradient(to top,
-    transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));
+    transparent 0 calc(var(--edge) - var(--soft)), #000 var(--edge));
 }
 /* 사진 위 톤 정리 — 3D 씬의 밤 무드와 이어지도록 */
 .hero-photo-scrim {
@@ -484,13 +488,14 @@ h2 {
     linear-gradient(to top, rgba(3,5,12,0.92) 0%, rgba(3,5,12,0.45) 34%, rgba(6,4,18,0.18) 66%, rgba(10,6,26,0.34) 100%),
     linear-gradient(120deg, rgba(46,20,110,0.28), rgba(0,0,0,0) 60%);
   -webkit-mask-image: linear-gradient(to top,
-    transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));
+    transparent 0 calc(var(--edge) - var(--soft)), #000 var(--edge));
   mask-image: linear-gradient(to top,
-    transparent 0 calc(var(--wipe) * 128% - 14%), #000 calc(var(--wipe) * 128%));
+    transparent 0 calc(var(--edge) - var(--soft)), #000 var(--edge));
 }
 .hero-scan {
-  position: absolute; left: -8%; right: -8%; height: 30vh;
-  bottom: calc(var(--wipe) * 128% - 19vh);
+  position: absolute; left: -8%; right: -8%;
+  height: calc(var(--soft) * 3.2);
+  bottom: calc(var(--edge) - var(--soft) * 1.9);
   opacity: var(--scan);
   mix-blend-mode: screen; filter: blur(7px);
   background: linear-gradient(to top,

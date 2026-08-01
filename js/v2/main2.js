@@ -539,6 +539,7 @@ addEventListener('resize', resize);
 measure();
 resize();
 window.__info = () => ({ T: +T.toFixed(3), fps: +fps.toFixed(1), tier, prog: +state.prog.toFixed(2), inv: +state.invest.toFixed(2), gro: +state.growth.toFixed(2), yld: +state.yield.toFixed(2) });
+window.__brickCount = () => building.brickSys.count;
 window.__tier = (n) => { tier = clamp(n, 0, 2); applyTier(); };
 window.__probe = () => ({ scale: +state.tokScale.toFixed(3) });
 frame();

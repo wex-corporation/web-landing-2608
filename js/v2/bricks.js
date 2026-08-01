@@ -19,7 +19,7 @@ const COLORS = {
   [MAT.WOOD]: 0x7d4227,
   [MAT.GLASS]: 0x1c2733,
   [MAT.DARK]: 0x2b2f36,
-  [MAT.WHITE]: 0xf6f4ee,
+  [MAT.WHITE]: 0xece8de,
   [MAT.GREEN]: 0x4c7f3c,
   [MAT.ASPHALT]: 0x33363c,
   [MAT.ACCENT]: 0x7c4dff,

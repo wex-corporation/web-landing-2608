@@ -260,9 +260,11 @@ export function buildBrickMeshes(bricks, envMap, opts = {}) {
       const wy = b.y * BH + BH / 2;
       const wz = (b.z + 0.5 - originZ) * U;
       aTgt[i * 3] = wx; aTgt[i * 3 + 1] = wy; aTgt[i * 3 + 2] = wz;
-      const ang = rand() * Math.PI * 2, rr = 260 + rand() * 420;
+      // 흩어지는 반경. 건물이 350×252 이므로 이보다 훨씬 크게 던지면
+      // 해체가 끝나는 순간 블록이 전부 화면 밖으로 나가 무대가 텅 빈다.
+      const ang = rand() * Math.PI * 2, rr = 170 + rand() * 280;
       aScat[i * 3] = Math.cos(ang) * rr;
-      aScat[i * 3 + 1] = wy + 190 + rand() * 300;
+      aScat[i * 3 + 1] = wy + 110 + rand() * 200;
       aScat[i * 3 + 2] = Math.sin(ang) * rr;
       const seed = rand();
       aSeed[i] = seed;

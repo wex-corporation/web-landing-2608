@@ -19,6 +19,10 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html { scroll-behavior: auto; }
+/* 마지막 챕터 아래로 더 당겼을 때 페이지가 튕기며 캔버스 뒤의 빈 바탕(검정)이
+   드러나지 않게 한다. 위쪽 당겨서 새로고침도 같이 막힌다 — 스크롤이 곧 연출이라
+   페이지가 위아래로 밀리면 장면이 끊긴다. */
+html, body { overscroll-behavior-y: none; }
 html, body { background: var(--ink); }
 body {
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
@@ -131,8 +135,14 @@ section.ch { position: relative; }
    챕터가 바뀔 때 갑자기 빨라지거나 느려지는 위화감이 사라진다.
    챕터별 완급은 높이가 아니라 안쪽 타이밍 곡선으로 준다. */
 #ch0, #ch1, #ch2, #ch3, #ch4, #ch5, #ch6, #ch7 { height: 330vh; }
+/* 카피 판은 sticky 가 아니라 fixed 다.
+   sticky 로 두면 섹션이 빠져나가는 한 화면 분량 동안 앞 카피는 위로 밀려 나가고
+   뒤 카피는 아직 화면 아래에 있어서, 그 사이 화면 아래쪽이 통째로 비어 버린다.
+   (그 구간에는 타임라인도 멈춰 있어 3D 까지 정지한다)
+   fixed 로 고정해 두면 카피 위치가 늘 같아서 챕터끼리 깨끗하게 교차 페이드된다.
+   섹션은 스크롤 길이만 담당한다. */
 .pin {
-  position: sticky; top: 0; height: 100vh;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
   display: flex; align-items: center;
   padding: 0 clamp(22px, 6vw, 96px);
   pointer-events: none;

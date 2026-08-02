@@ -154,8 +154,14 @@ const K_FOV = [[0, 38], [1, 45], [2, 43], [3, 42], [3.55, 44], [4, 43], [5, 42],
 const sections = [...document.querySelectorAll('section.ch')];
 let secTop = [], secLen = [];
 function measure() {
-  secTop = sections.map((s) => s.offsetTop);
-  secLen = sections.map((s) => Math.max(s.offsetHeight - innerHeight, 1));
+  // 카피 판이 fixed 라 '핀이 붙어 있는 구간' 이라는 게 없다.
+  // 스크롤 가능한 전체 길이를 챕터 수로 똑같이 나눠 T 0→8 을 끊김 없이 태운다.
+  // (예전처럼 섹션 높이−화면높이 로 재면 섹션이 빠져나가는 한 화면 동안
+  //  T 가 정수에 멈춰 서서 3D 도 카피도 얼어붙었다)
+  const total = Math.max(document.documentElement.scrollHeight - innerHeight, 1);
+  const len = total / sections.length;
+  secTop = sections.map((s, i) => i * len);
+  secLen = sections.map(() => len);
 }
 function scrollToT() {
   const y = scrollY;
@@ -177,6 +183,11 @@ window.__seek = (t) => {
 const copies = sections.map((s) => s.querySelector('.copy'));
 const railEl = document.getElementById('rail');
 const railLinks = [...document.querySelectorAll('.rail a')];
+// 섹션 위치와 타임라인 위치가 더는 같지 않으므로(measure 참고) 앵커 대신 직접 이동한다
+railLinks.forEach((lnk, i) => lnk.addEventListener('click', (e) => {
+  e.preventDefault();
+  scrollTo({ top: secTop[i] + secLen[i] * 0.3, behavior: 'smooth' });
+}));
 const counters = {};
 document.querySelectorAll('[data-c]').forEach((el) => (counters[el.dataset.c] = el));
 const stageBadge = document.getElementById('stageBadge');
@@ -248,15 +259,19 @@ const headLines = copies.map((el) => {
   return [...h.querySelectorAll('.ln > i')];
 });
 
+// 카피 교차 페이드 구간 [들어옴 시작, 끝, 나감 시작, 끝] — 기준은 l = T − 챕터번호.
+// 들어오는 구간이 음수에서 시작해 앞 챕터가 나가는 구간과 겹친다.
+// 겹치지 않으면 그 사이에 아무 카피도 없는 순간이 생기는데, 모바일은 화면 아래
+// 3분의 2가 글 자리라 그 순간이 통째로 검은 판으로 보인다.
 const FADE = [
-  [-1, 0.0001, 0.52, 0.8],
-  [0.02, 0.13, 0.88, 0.99],
-  [0.03, 0.15, 0.87, 0.99],
-  [0.02, 0.13, 0.88, 0.99],
-  [0.02, 0.13, 0.88, 0.99],
-  [0.02, 0.13, 0.88, 0.99],
-  [0.02, 0.13, 0.88, 0.99],
-  [0.06, 0.24, 2, 3],
+  [-1, 0.0001, 0.86, 1.02],   // 00 서막 — 처음부터 떠 있다
+  [-0.14, 0.02, 0.86, 1.02],
+  [-0.14, 0.02, 0.86, 1.02],
+  [-0.14, 0.02, 0.86, 1.02],
+  [-0.14, 0.02, 0.86, 1.02],
+  [-0.14, 0.02, 0.86, 1.02],
+  [-0.14, 0.02, 0.86, 1.02],
+  [-0.14, 0.02, 9, 9],        // 07 CTA — 끝까지 남는다
 ];
 // 챕터별 데이터 패널 (투자 지갑 / 성장 차트 / 수익 배당)
 const panels = [
@@ -297,7 +312,7 @@ function uiUpdate() {
   const li = clamp(Math.floor(T), 0, 7);
   for (let i = 0; i < copies.length; i++) {
     const el = copies[i]; if (!el) continue;
-    const l = sat(T - i);
+    const l = T - i;   // 음수 허용 — 앞 챕터와 겹쳐야 교차 페이드가 된다
     const [a, b, c2, d] = FADE[i];
     const vIn = sp(l, a, b), vOut = 1 - sp(l, c2, d);
     const o = vIn * vOut;
@@ -400,8 +415,9 @@ function director(t, dt) {
     }
   }
 
-  const hero = 1 - easeInOutSine(sp(T, 0.72, 1.0));
-  const buildRaw = easeInOutSine(sp(T, 1.0, 1.92));
+  const hero = 1 - easeInOutSine(sp(T, 0.80, 1.0));
+  // 재조립은 easeOutCubic — 바닥에서 빨리 빠져나와야 '아무것도 없는 구간'이 짧다
+  const buildRaw = easeOutCubic(sp(T, 1.0, 1.92));
   state.prog = T < 1 ? hero : T >= 2 ? 1 : buildRaw;
   state.holo = 0;
 

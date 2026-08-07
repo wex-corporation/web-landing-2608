@@ -150,6 +150,64 @@ const K_TY = [[0, 152], [1, 85], [1.5, 115], [2, 140], [2.5, 168], [3, 150], [3.
 const K_TX = [[0, 0], [1, -40], [1.5, 0], [2, 18], [2.5, 6], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [8, 0]];
 const K_FOV = [[0, 38], [1, 45], [2, 43], [3, 42], [3.55, 44], [4, 43], [5, 42], [6, 42], [7, 43], [8, 42]];
 
+// 가로 화면의 좌우 분할 — 모바일이 '위 = 건물 / 아래 = 글'로 나누는 것과 같은 원리다.
+// 카피가 왼쪽 레인이면 건물을 오른쪽으로, 오른쪽 레인이면 왼쪽으로 민다.
+// 값 = 건물이 갈 방향(+1 오른쪽 / -1 왼쪽). 서막(00)과 CTA(07)는 카피가 가운데라 0.
+// 03·06 만 원래도 안 겹쳤는데, 그건 그 구간의 방위각이 마침 건물을 반대편에
+// 세워 준 덕이었다. 그 우연을 전 챕터에 규칙으로 깔아 준다.
+// 이웃한 두 챕터는 반드시 다른 레인이어야 한다 — 교차 페이드 잔상이 겹쳐 읽히므로.
+// (01·02 만 예외이고, 그건 FADE[1] 을 앞당겨 끊어서 막았다)
+const LANE = [0, 1, 1, -1, 1, -1, 1, 0, 0];
+const SPLIT_F = 0.15;    // 화면 폭 대비 미는 양
+function laneAt(t) {
+  const i = clamp(Math.floor(t), 0, 7);
+  // 카피가 교차 페이드하는 구간(l 0.86→1.02)에 맞춰 레인을 바꾼다 —
+  // 글이 반대편으로 건너가는 그 순간에 건물도 같이 건너가야 한 동작으로 읽힌다.
+  return lerp(LANE[i], LANE[i + 1], smoothstep(0.80, 1.0, sat(t - i)));
+}
+
+// ---------------------------------------------------------------- 딸깍(디텐트)
+// 스크롤 총량은 그대로 두고, 타임라인이 '읽는 지점'에서만 느려지게 만든다.
+// 같은 거리를 밀어도 메시지 앞에서 한 번 걸렸다가 훅 넘어간다.
+// 스크롤을 가로채지 않으므로 되감기·관성·휠이 전부 그대로 동작한다.
+//
+// 비트는 3D 가 '쉬는 자세'로 서 있는 지점으로 골랐다 (챕터 로컬 l):
+//   00 사진이 레고가 된 직후 / 01 재조립 완료 / 02 준공 전경 / 03 완전 분해 + 토큰
+//   04 다시 한 채 + 지갑 / 05 그래프 완주 / 06 배당 누적 완료 / 07 CTA
+// 재조립 한복판 같은 데 비트를 두면 반쯤 지어진 채로 멈춰 선다.
+const BEAT = [0.66, 0.62, 0.45, 0.78, 0.72, 0.75, 0.72, 0.35];
+const DW = 0.20;               // 디텐트 반폭 (챕터 로컬)
+// 깊이. 중심에서 기울기가 (1−DD)/DEN ≈ 0.18 배까지 떨어진다.
+// 1 로 두면(=기울기 0) 그 구간에서 T 가 멈춰 3D 가 통째로 얼어붙는다. 반드시 1 미만.
+const DD = 0.85;
+const DEN = 1 - DD * DW;       // 디텐트 바깥 기울기는 1/DEN ≈ 1.20 배로 빨라진다
+// BEAT 는 T 공간의 값이므로, 범프 중심은 원래 스크롤 공간으로 되돌려 잡는다
+const beatU = (i) => clamp(BEAT[i] * DEN + (DD * DW) / 2, DW, 1 - DW);
+
+// 기울기 1 − DD·bump(범프는 양 끝에서 기울기 0 인 코사인 언덕)를 적분해 정규화한 것.
+// 단조 증가라 u 0→1 이 v 0→1 로 빠짐없이 대응한다.
+function warpLocal(u, i) {
+  const b = beatU(i);
+  let acc;
+  if (u <= b - DW) acc = u;
+  else if (u >= b + DW) acc = u - DD * DW;
+  else {
+    const x = (u - b) / DW;
+    acc = u - DD * DW * 0.5 * (x + Math.sin(Math.PI * x) / Math.PI + 1);
+  }
+  return acc / DEN;
+}
+// 역함수 — __seek 과 스냅이 쓴다. 단조라 이분법이면 충분하고 정확하다.
+// (이걸 빼먹으면 __seek(T) 가 엉뚱한 시점을 찍어 검수가 통째로 어긋난다)
+function unwarpLocal(v, i) {
+  let lo = 0, hi = 1;
+  for (let k = 0; k < 28; k++) {
+    const mid = (lo + hi) * 0.5;
+    if (warpLocal(mid, i) < v) lo = mid; else hi = mid;
+  }
+  return (lo + hi) * 0.5;
+}
+
 // ---------------------------------------------------------------- 스크롤 → 타임라인
 const sections = [...document.querySelectorAll('section.ch')];
 let secTop = [], secLen = [];
@@ -163,34 +221,81 @@ function measure() {
   secTop = sections.map((s, i) => i * len);
   secLen = sections.map(() => len);
 }
+function chapterAt(y) {
+  let i = 0;
+  for (let k = 0; k < sections.length; k++) if (y >= secTop[k]) i = k;
+  return i;
+}
 function scrollToT() {
   const y = scrollY;
-  let T = 0;
-  for (let i = 0; i < sections.length; i++) {
-    if (y >= secTop[i]) T = i + sat((y - secTop[i]) / secLen[i]);
-  }
-  return Math.min(T, 7.9999);
+  const i = chapterAt(y);
+  return Math.min(i + warpLocal(sat((y - secTop[i]) / secLen[i]), i), 7.9999);
 }
-let targetT = 0, T = 0;
+// rawT = 워핑까지만 거친 '실제 스크롤 위치'. T 는 여기에 러프와 넛지가 더해진 연출값이다.
+let targetT = 0, T = 0, rawT = 0;
 window.__seek = (t) => {
   t = clamp(t, 0, 7.999);
   const i = clamp(Math.floor(t), 0, 7);
-  scrollTo(0, secTop[i] + (t - i) * secLen[i]);
-  targetT = T = t;
+  scrollTo(0, secTop[i] + unwarpLocal(t - i, i) * secLen[i]);
+  targetT = T = rawT = t;   // 프레임을 기다리지 않아도 __info() 가 맞도록 같이 세운다
 };
+
+// ── 비트 스냅 ──────────────────────────────────────────────────
+// 손을 떼고 관성까지 잦아들었을 때, 디텐트 안쪽에 있으면 중심으로 살짝 앉힌다.
+// 바깥이면 손대지 않는다 — 어디서든 끌어당기면 스크롤을 뺏긴 느낌이 난다.
+const SNAPPY = !SNAP && !REDUCED;
+const SNAP_IN = DW * 0.5;      // 이 안쪽에 멈춰 섰을 때만 당긴다
+const SNAP_DUR = 0.38;
+const HAS_SCROLLEND = 'onscrollend' in window;
+let snap = null, lastY = -1, stillT = 0;
+function trySnap() {
+  if (!SNAPPY || snap) return;
+  const y = scrollY;
+  const i = chapterAt(y);
+  const b = beatU(i);
+  const u = sat((y - secTop[i]) / secLen[i]);
+  if (Math.abs(u - b) > SNAP_IN) return;
+  const to = Math.round(secTop[i] + b * secLen[i]);
+  if (Math.abs(to - y) < 2) return;
+  snap = { from: y, to, t: 0, wrote: y };
+}
+function updateSnap(dt) {
+  if (!SNAPPY) return;
+  if (snap) {
+    // 스냅 도중에 사용자가 다시 잡으면 즉시 포기한다
+    if (Math.abs(scrollY - snap.wrote) > 2) { snap = null; lastY = scrollY; return; }
+    snap.t += dt;
+    const k = easeInOutSine(sat(snap.t / SNAP_DUR));
+    scrollTo(0, Math.round(lerp(snap.from, snap.to, k)));
+    snap.wrote = scrollY;
+    lastY = scrollY;
+    if (k >= 1) snap = null;
+    return;
+  }
+  // scrollend 를 지원하면 그쪽이 정확하다 (관성이 끝나는 바로 그 순간에 온다).
+  // 없을 때만 '멈춘 지 얼마' 로 대신한다.
+  if (HAS_SCROLLEND) return;
+  if (scrollY !== lastY) { lastY = scrollY; stillT = 0; return; }
+  stillT += dt;
+  if (stillT < 0.22) return;
+  stillT = 0;
+  trySnap();
+}
+if (SNAPPY && HAS_SCROLLEND) addEventListener('scrollend', trySnap, { passive: true });
 
 // ---------------------------------------------------------------- UI
 const copies = sections.map((s) => s.querySelector('.copy'));
 const railEl = document.getElementById('rail');
 const railLinks = [...document.querySelectorAll('.rail a')];
-// 섹션 위치와 타임라인 위치가 더는 같지 않으므로(measure 참고) 앵커 대신 직접 이동한다
+// 섹션 위치와 타임라인 위치가 더는 같지 않으므로(measure 참고) 앵커 대신 직접 이동한다.
+// 도착점은 그 챕터의 비트 — 눌러서 온 사람도 딱 읽기 좋은 자리에 선다.
 railLinks.forEach((lnk, i) => lnk.addEventListener('click', (e) => {
   e.preventDefault();
-  scrollTo({ top: secTop[i] + secLen[i] * 0.3, behavior: 'smooth' });
+  scrollTo({ top: secTop[i] + secLen[i] * beatU(i), behavior: 'smooth' });
 }));
+const scrollHint = document.getElementById('scrollHint');
 const counters = {};
 document.querySelectorAll('[data-c]').forEach((el) => (counters[el.dataset.c] = el));
-const stageBadge = document.getElementById('stageBadge');
 
 // 서막 실사 사진 — assets/hero.jpg 가 있으면 사용, 없으면 바로 브릭 씬으로 시작
 const PHOTO_SRC = 'assets/hero.jpg';
@@ -265,7 +370,10 @@ const headLines = copies.map((el) => {
 // 3분의 2가 글 자리라 그 순간이 통째로 검은 판으로 보인다.
 const FADE = [
   [-1, 0.0001, 0.86, 1.02],   // 00 서막 — 처음부터 떠 있다
-  [-0.14, 0.02, 0.86, 1.02],
+  // 01 은 02 와 같은 왼쪽 레인이라(LANE 참고) 잔상이 다음 카피 위에 그대로 얹힌다.
+  // 나가는 구간만 앞당겨 끊는다 — 02 는 이미 l=-0.14(T 1.86)부터 올라오고 있어서
+  // 01 이 0 이 되는 T 1.96 시점엔 62% 까지 차 있다. 빈 순간은 생기지 않는다.
+  [-0.14, 0.02, 0.80, 0.96],
   [-0.14, 0.02, 0.86, 1.02],
   [-0.14, 0.02, 0.86, 1.02],
   [-0.14, 0.02, 0.86, 1.02],
@@ -327,6 +435,8 @@ function uiUpdate() {
       }
     }
   }
+  // 힌트는 '실제로 스크롤했는가' 로 걷는다. T 를 쓰면 넛지 연출에 스스로 사라진다.
+  if (scrollHint) scrollHint.style.opacity = (1 - sp(rawT, 0.02, 0.13)).toFixed(3);
   railLinks.forEach((lnk, i) => lnk.classList.toggle('on', i === li));
   if (railEl) railEl.style.setProperty('--p', (T / 8).toFixed(4));
   set('prog', Math.round(state.prog * 100));
@@ -375,14 +485,6 @@ function uiUpdate() {
     p.el.style.opacity = o.toFixed(3);
     p.el.style.transform = `translateY(${((1 - Math.min(o * 1.4, 1)) * 26).toFixed(1)}px)`;
     p.el.style.visibility = o < 0.005 ? 'hidden' : 'visible';
-  }
-  if (stageBadge) {
-    const on = T > 1.02 && T < 2.02;
-    stageBadge.style.opacity = on ? '1' : '0';
-    if (on) {
-      const bag = clamp(Math.floor(state.prog * 3) + 1, 1, 3);
-      stageBadge.textContent = `LAYER ${String(bag).padStart(2, '0')} / 03`;
-    }
   }
 }
 
@@ -480,8 +582,10 @@ function director(t, dt) {
     camera.lookAt(tmpB);
     camera.updateMatrixWorld();
   };
-  const setOffY = (oy) => {
-    if (Math.abs(oy) > 0.5) camera.setViewOffset(innerWidth, innerHeight, 0, oy, innerWidth, innerHeight);
+  // setViewOffset 은 '전체 화면 중 어느 창을 렌더할지'를 정한다.
+  // x/y 를 키우면 창이 오른쪽·아래로 가므로, 화면 위의 내용물은 왼쪽·위로 밀린다.
+  const setOff = (ox, oy) => {
+    if (Math.abs(ox) > 0.5 || Math.abs(oy) > 0.5) camera.setViewOffset(innerWidth, innerHeight, ox, oy, innerWidth, innerHeight);
     else camera.clearViewOffset();
   };
 
@@ -511,7 +615,7 @@ function director(t, dt) {
 
   // 건물이 화면 좌우로 잘리지 않는 최소 거리를 실제 투영으로 역산한다.
   // (예전의 '반폭 ÷ tan' 근사는 앞면이 카메라에 더 가깝다는 걸 못 봐서 잘렸다)
-  setOffY(offY);
+  setOff(0, offY);
   const pad = innerWidth * (portrait ? 0.05 : 0.004);
   place(dist);
   for (let i = 0; i < 4; i++) {
@@ -534,6 +638,22 @@ function director(t, dt) {
     camera.lookAt(tmpB);
     camera.updateMatrixWorld();
   }
+
+  // ── 좌우 분할 ─────────────────────────────────────────────
+  // 거리 역산이 다 끝난 뒤에 화면만 옆으로 민다. 거리를 건드리지 않으므로
+  // 건물이 작아지지 않고, 잘림 방지 루프와 서로 밀고 당기지도 않는다.
+  // 서막(lane 0)에는 걸리지 않으니 실사 사진 정합도 그대로다.
+  let offX = 0;
+  const lane = portrait ? 0 : laneAt(T);
+  if (Math.abs(lane) > 0.002) {
+    const r = projectMassFront();
+    const want = lane * innerWidth * SPLIT_F;
+    const edge = innerWidth * 0.03;
+    // 미는 쪽으로 건물이 화면 밖까지 나가지는 않을 만큼만 민다
+    const room = want > 0 ? (innerWidth - edge) - r.x1 : r.x0 - edge;
+    offX = Math.sign(want) * Math.min(Math.abs(want), Math.max(room, 0));
+  }
+  setOff(-offX, offY);
 
   // 카메라가 확정된 뒤에 사진을 그 위에 겹친다 (한 프레임도 어긋나지 않게)
   if (photoLive) fitHeroPhoto();
@@ -566,7 +686,13 @@ function director(t, dt) {
   if (state.tokScale > 0.001) {
     const f = tmpA.set(0, 0, -1).applyQuaternion(camera.quaternion);
     const r = tmpC.set(1, 0, 0).applyQuaternion(camera.quaternion);
-    tmpD.copy(camera.position).addScaledVector(f, 300).addScaledVector(r, MOBILE ? 0 : -90);
+    // 토큰도 빈 레인에 선다. 03(카피 우측)에서는 왼쪽에 떠 있다가
+    // 04(카피 좌측)로 넘어갈 때 카피와 엇갈려 오른쪽으로 건너간다.
+    // 한쪽에 고정해 두면 04 헤드라인 "66,900원부터" 위에 그대로 얹힌다.
+    // 폭이 작은 건 좌우 분할이 이미 화면을 크게 밀어 주기 때문 —
+    // 토큰은 카메라에서 300 밖에 안 떨어져 있어서 1 이 화면에서는 4px 쯤 된다.
+    const tokLane = lerp(-1, 1, smoothstep(3.86, 4.14, T));
+    tmpD.copy(camera.position).addScaledVector(f, 300).addScaledVector(r, MOBILE ? 0 : tokLane * 44);
     tmpD.y += MOBILE ? 16 : 6;
     state.tokPos.copy(tmpD);
   }
@@ -611,6 +737,29 @@ function applyTier() {
   resize();
 }
 
+// ---------------------------------------------------------------- 첫 스크롤 넛지
+// 가만히 두면 보라 스캔 밴드를 한 번 살짝 올렸다 내린다.
+// 이 페이지가 스크롤로 움직인다는 걸 '말' 대신 '움직임' 으로 알린다 —
+// 움직이는 것만큼 강한 어포던스가 없고, 마침 이 페이지의 대표 연출이다.
+//
+// 페이지를 실제로 스크롤하지 않고 타임라인만 잠깐 앞당긴다.
+// scrollY 를 건드리면 관성·스냅과 엉키고 사용자가 되돌리기도 어렵다.
+const NUDGE_WAIT = 2.5, NUDGE_DUR = 1.9, NUDGE_AMP = 0.26;  // 0.26 이면 밴드가 건물 발치까지 오른다
+let nudgeAt = -1, nudgeDone = false, touched = false;
+if (!SNAP && !REDUCED) {
+  const cancel = () => { touched = true; };
+  ['wheel', 'touchstart', 'keydown', 'scroll'].forEach((e) =>
+    addEventListener(e, cancel, { passive: true, once: true }));
+}
+function nudgeAmount(t) {
+  // 새로고침으로 중간에서 복원됐으면 넛지할 자리가 아니다
+  if (SNAP || REDUCED || touched || nudgeDone || nudgeAt < 0 || scrollY > 4) return 0;
+  const u = (t - nudgeAt) / NUDGE_DUR;
+  if (u < 0) return 0;
+  if (u >= 1) { nudgeDone = true; return 0; }
+  return Math.sin(Math.PI * u) * NUDGE_AMP;
+}
+
 // ---------------------------------------------------------------- 루프
 const loader = document.getElementById('loader');
 const loaderBar = document.getElementById('loaderBar');
@@ -622,7 +771,9 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
-  targetT = scrollToT();
+  updateSnap(dt);
+  rawT = scrollToT();
+  targetT = clamp(rawT + nudgeAmount(t), 0, 7.9999);
   const k = SNAP || REDUCED ? 1 : 1 - Math.exp(-dt * 5.2);
   T += (targetT - T) * k;
   director(t, dt);
@@ -644,7 +795,11 @@ function frame() {
       token.redraw();
       coins.redraw();
       building.redrawAll();
-      setTimeout(() => { loader.classList.add('hide'); window.__ready = true; }, 150);
+      setTimeout(() => {
+        loader.classList.add('hide');
+        window.__ready = true;
+        nudgeAt = clock.elapsedTime + NUDGE_WAIT;   // 로더가 걷힌 뒤부터 센다
+      }, 150);
     });
   }
 }
@@ -658,7 +813,11 @@ function resize() {
 addEventListener('resize', resize);
 measure();
 resize();
-window.__info = () => ({ T: +T.toFixed(3), fps: +fps.toFixed(1), tier, prog: +state.prog.toFixed(2), inv: +state.invest.toFixed(2), gro: +state.growth.toFixed(2), yld: +state.yield.toFixed(2) });
+window.__info = () => ({ T: +T.toFixed(3), raw: +rawT.toFixed(3), fps: +fps.toFixed(1), tier, prog: +state.prog.toFixed(2), inv: +state.invest.toFixed(2), gro: +state.growth.toFixed(2), yld: +state.yield.toFixed(2) });
+// 검수용. 이 씬은 소프트웨어 렌더러에서 1fps 미만이라 '한 프레임 뒤' 값을 읽기 쉬운데,
+// 이 둘은 프레임을 기다리지 않고 지금 상태를 그대로 돌려준다.
+window.__rawNow = () => scrollToT();      // scrollY 로 바로 계산한 워핑 후 T
+window.__snapBusy = () => !!snap;         // 비트 스냅 진행 중인가
 window.__brickCount = () => building.brickSys.count;
 window.__tier = (n) => { tier = clamp(n, 0, 2); applyTier(); };
 window.__probe = () => {
@@ -668,6 +827,9 @@ window.__probe = () => {
     // 건물 정면 실루엣이 화면에서 차지하는 비율 — 실사/브릭 정합과 잘림 확인용
     bx: [+(r.x0 / innerWidth).toFixed(3), +(r.x1 / innerWidth).toFixed(3)],
     by: [+(r.y0 / innerHeight).toFixed(3), +(r.y1 / innerHeight).toFixed(3)],
+    // 좌우/상하 분할 상태 — lane 부호와 bx 가 반대로 움직이면 분할이 뒤집힌 것이다
+    lane: +laneAt(T).toFixed(2),
+    off: camera.view && camera.view.enabled ? [Math.round(camera.view.offsetX), Math.round(camera.view.offsetY)] : null,
   };
 };
 frame();

@@ -208,14 +208,31 @@ h2 {
 
 /* 히어로 */
 .hero h1 { margin-top: 4px; }
+/* 스크롤 힌트 — 카피 밖으로 빼서 화면 하단 가운데 고정.
+   예전에는 히어로 카피 밑에 붙은 1px 선이 전부라 모바일에서 엄지에 가려 안 보였다.
+   셰브론은 '아래로 민다'를 말 없이 설명하고, 통째로 위아래로 흔들려 눈에 걸린다.
+   opacity 는 main2.js 가 '실제 스크롤량' 으로 준다 — 넛지 연출에는 반응하지 않아야
+   하므로 T 가 아니라 워핑 전 raw 값을 쓴다. */
 .scroll-hint {
-  margin: 54px auto 0; display: flex; flex-direction: column; align-items: center; gap: 10px;
-  color: var(--sub); font-size: 11px; letter-spacing: 0.4em; padding-left: 0.4em;
+  position: fixed; left: 0; right: 0; z-index: 40; pointer-events: none;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  color: var(--sub); opacity: 0; transition: opacity 0.35s ease;
+  animation: hintbob 2.4s ease-in-out infinite;
+}
+.scroll-hint span {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.34em; padding-left: 0.34em;
+  text-shadow: 0 1px 3px rgba(3, 6, 14, 0.95), 0 0 14px rgba(3, 6, 14, 0.9);
 }
 .scroll-hint i {
-  width: 1px; height: 52px; background: linear-gradient(180deg, var(--violet), transparent);
+  width: 1px; height: 34px; background: linear-gradient(180deg, var(--violet), transparent);
   animation: drip 1.8s ease-in-out infinite;
 }
+.scroll-hint svg {
+  display: block; color: var(--cyan);
+  filter: drop-shadow(0 1px 4px rgba(3, 6, 14, 0.95));
+}
+@keyframes hintbob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
 @keyframes drip { 0% { transform: scaleY(0); transform-origin: top; } 55% { transform: scaleY(1); transform-origin: top; } 56% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
 
 /* 스탯 */
@@ -307,8 +324,21 @@ h2 {
 .earn-foot em { font-style: normal; color: var(--gold); font-size: 11.5px; margin-left: auto; }
 
 /* CTA */
+/* 마지막 샷에서는 건물이 화면 한가운데 정면으로 서고, 그 발치의 잔디·아스팔트
+   베이스판이 화면 아래쪽을 밝게 채운다. 면책 문구는 하필 그 위에 앉는다.
+   그래서 카피 뒤 스크림을 아래로 길게 늘여 문구가 앉을 바닥을 만들어 준다.
+   (레이아웃은 그대로 두고 대비만 확보 — 버튼과 시선이 갈리지 않게)
+   맨 아래를 다시 투명으로 되돌리는 건 blur(14px) 가 잘린 끝을 띠로 만들기 때문. */
 .copy.cta::before {
-  background: radial-gradient(ellipse at center, rgba(8, 14, 24, 0.5), rgba(8, 14, 24, 0.3) 46%, rgba(8, 14, 24, 0.1) 72%, transparent 88%);
+  inset: -76px -120px -132px;
+  background:
+    linear-gradient(to bottom,
+      rgba(4, 7, 14, 0) 0 44%,
+      rgba(4, 7, 14, 0.5) 62%,
+      rgba(4, 7, 14, 0.74) 74%,
+      rgba(4, 7, 14, 0.74) 88%,
+      rgba(4, 7, 14, 0) 100%),
+    radial-gradient(ellipse at center, rgba(8, 14, 24, 0.5), rgba(8, 14, 24, 0.3) 46%, rgba(8, 14, 24, 0.1) 72%, transparent 88%);
 }
 .copy.cta h2, .copy.cta .body { text-shadow: 0 2px 4px rgba(3, 6, 14, 0.7), 0 0 22px rgba(3, 6, 14, 0.8); }
 .copy.cta .body { color: #e2eaf6; }
@@ -391,8 +421,12 @@ h2 {
     margin-top: 12px; font-size: 15.5px; line-height: 1.6;
     color: #ccd5e6; text-wrap: pretty;
   }
-  .scroll-hint { margin: 22px 0 0; align-items: flex-start; }
-  .scroll-hint i { height: 40px; }
+  /* 세로 화면은 아래쪽이 통째로 글 자리라 힌트가 들어설 틈이 거의 없다.
+     드립 라인을 접어 라벨+셰브론만 남기고, 서막 카피는 그만큼 위로 올려 비켜 준다. */
+  .scroll-hint { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); gap: 6px; }
+  .scroll-hint i { display: none; }
+  .scroll-hint span { font-size: 10.5px; letter-spacing: 0.28em; padding-left: 0.28em; }
+  #ch0 .pin { padding-bottom: calc(6vh + 46px + env(safe-area-inset-bottom, 0px)); }
 
   /* 스탯은 헤어라인으로 구획 — 표처럼 읽히게 */
   .stats { gap: 0; margin-top: 20px; flex-wrap: nowrap; align-items: stretch; }
@@ -426,7 +460,6 @@ h2 {
   .chapno { font-size: 96px; top: -0.36em; }
   .copy.center .chapno, .copy.right .chapno { left: -0.06em; right: auto; transform: none; }
   .eyebrow::before { width: 20px; }
-  .stage-badge { top: 64px; font-size: 10.5px; letter-spacing: 0.22em; padding: 7px 13px; }
 }
 
 /* 눕힌 폰처럼 세로 공간이 짧을 때: 카피는 왼쪽, 3D는 오른쪽 */
@@ -459,11 +492,10 @@ h2 {
   .btn { padding: 11px 22px; font-size: 14px; }
   .disclaimer { margin-top: 14px; font-size: 10.5px; line-height: 1.55; }
   .scroll-hint { display: none; }
-  .stage-badge { top: 58px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scroll-hint i, .loader-glyph rect { animation: none; }
+  .scroll-hint, .scroll-hint i, .loader-glyph rect { animation: none; }
 }
 
 /* ── 서막 실사 레이어 ── */
@@ -511,15 +543,4 @@ h2 {
   background: linear-gradient(to top,
     rgba(91,22,238,0) 0%, rgba(124,77,255,0.42) 40%,
     rgba(214,200,255,0.95) 56%, rgba(157,123,255,0.5) 66%, rgba(91,22,238,0) 100%);
-}
-
-/* ── 건설 단계 배지 (레고 설명서 봉지 번호) ── */
-.stage-badge {
-  position: fixed; left: 50%; top: 88px; transform: translateX(-50%);
-  z-index: 40; opacity: 0; transition: opacity 0.4s ease;
-  font-size: 11.5px; font-weight: 700; letter-spacing: 0.28em;
-  color: var(--cyan); padding: 8px 16px; border-radius: 999px;
-  border: 1px solid rgba(157, 123, 255, 0.3);
-  background: rgba(12, 8, 26, 0.55); backdrop-filter: blur(10px);
-  font-variant-numeric: tabular-nums; pointer-events: none;
 }

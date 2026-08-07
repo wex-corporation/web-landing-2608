@@ -56,7 +56,15 @@
   <div class="hero-scan"></div>
 </div>
 
-<div class="stage-badge" id="stageBadge" aria-hidden="true">LAYER 01 / 03</div>
+
+<!-- 스크롤 힌트 — 카피 안이 아니라 화면 하단 고정. '이건 스크롤이다'가 첫 화면에서 읽혀야 한다 -->
+<div class="scroll-hint" id="scrollHint" aria-hidden="true">
+  <span>아래로 스크롤</span>
+  <i></i>
+  <svg viewBox="0 0 26 15" width="26" aria-hidden="true">
+    <path d="M2 2.6 L13 12 L24 2.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
 
 <nav class="rail" id="rail" aria-label="챕터 내비게이션">
   <a href="#ch0" data-i="0"><span>서막</span><em>00</em><i></i></a>
@@ -77,7 +85,6 @@
         <p class="eyebrow">부동산 조각투자 플랫폼</p>
         <h1>도시의 랜드마크를, <br/>당신의 포트폴리오로</h1>
         <p class="sub">2023년 준공, 지금도 매달 임대료가 들어오는 건물입니다. <br/>67억 원짜리 자산이 100,000개의 조각이 되기까지.</p>
-        <div class="scroll-hint"><span>SCROLL</span><i></i></div>
       </div>
     </div>
   </section>
@@ -102,7 +109,7 @@
   <!-- 02 자산 -->
   <section class="ch" id="ch2">
     <div class="pin">
-      <div class="copy center low">
+      <div class="copy left low">
         <span class="chapno" aria-hidden="true">02</span>
         <p class="eyebrow">CHAPTER 02 · 자산</p>
         <h2>2023년부터, <br/>매달 벌고 있습니다</h2>

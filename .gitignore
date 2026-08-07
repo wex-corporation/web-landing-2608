@@ -1,0 +1,6 @@
+# 검수용 도구(playwright-core 등)는 그때그때 설치해서 쓴다.
+# 이 저장소 자체는 빌드 스텝이 없는 정적 사이트라 배포에 필요한 의존성이 없다.
+node_modules/
+
+.DS_Store
+*.log

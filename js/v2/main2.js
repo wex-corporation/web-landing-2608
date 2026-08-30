@@ -408,6 +408,10 @@ if (gLine) {
   gLine.setAttribute('d', d);
   gArea.setAttribute('d', da + `L ${W} ${H} Z`);
 }
+// 경로 길이는 변하지 않으니 한 번만 잰다 — getTotalLength 는 지오메트리 계산이라
+// 매 프레임 부르면 그 자체가 프레임 예산을 갉아먹는다. dasharray 도 여기서 한 번.
+const gLen = gLine && gLine.getTotalLength ? gLine.getTotalLength() : 320;
+if (gLine) gLine.style.strokeDasharray = gLen;
 // 수익 배당 막대 12개
 const earnBars = document.getElementById('earnBars');
 if (earnBars && !earnBars.children.length) {
@@ -415,8 +419,17 @@ if (earnBars && !earnBars.children.length) {
 }
 const earnBarEls = earnBars ? [...earnBars.children] : [];
 
-function set(k, v) { if (counters[k]) counters[k].textContent = v; }
+// 같은 값이면 쓰지 않는다 — textContent 는 같은 문자열이어도 쓰는 순간 스타일 무효화가 된다
+function set(k, v) {
+  const el = counters[k];
+  if (el && el.__v !== v) { el.__v = v; el.textContent = v; }
+}
+// 화면에 그리는 모든 값이 T(와 rawT)의 함수다. 둘 다 멈춰 있으면 이 함수는
+// 통째로 건너뛴다 — 사용자가 읽느라 멈춘 동안 DOM 쓰기·스타일 재계산이 0 이 된다.
+let uiT = -1, uiRaw = -1;
 function uiUpdate() {
+  if (Math.abs(T - uiT) < 1e-5 && Math.abs(rawT - uiRaw) < 1e-5) return;
+  uiT = T; uiRaw = rawT;
   const li = clamp(Math.floor(T), 0, 7);
   for (let i = 0; i < copies.length; i++) {
     const el = copies[i]; if (!el) continue;
@@ -455,12 +468,10 @@ function uiUpdate() {
   set('gland', (15.4 * gr).toFixed(1));
   set('gnow', (25.3 * gr).toFixed(1));
   if (gLine) {
-    const len = gLine.getTotalLength ? gLine.getTotalLength() : 320;
-    gLine.style.strokeDasharray = len;
-    gLine.style.strokeDashoffset = len * (1 - gr);
+    gLine.style.strokeDashoffset = gLen * (1 - gr);
     gArea.style.opacity = gr.toFixed(3);
     if (gLine.getPointAtLength && gr > 0.02) {
-      const p = gLine.getPointAtLength(len * gr);
+      const p = gLine.getPointAtLength(gLen * gr);
       gDot.setAttribute('cx', p.x); gDot.setAttribute('cy', p.y);
       gDot.setAttribute('opacity', Math.min(gr * 3, 1));
     } else if (gDot) gDot.setAttribute('opacity', 0);

@@ -1,4 +1,4 @@
-// WeBlock 플래그십 — 레퍼런스(가평설악IC DT) 매싱을 브릭으로 재현
+// WeBlock 플래그십 — 레퍼런스(설악가평IC DT) 매싱을 브릭으로 재현
 // 레고 설명서 구성 참고: 봉지1 = 부지+1층 / 봉지2 = 2층 / 3 = 3층+지붕
 import * as THREE from 'three';
 import { BrickGrid, buildBrickMeshes, MAT, U, BH } from './bricks.js';

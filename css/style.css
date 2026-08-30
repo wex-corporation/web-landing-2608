@@ -379,22 +379,20 @@ h2 {
   #ch0 .pin { align-items: flex-start; padding-top: 34svh; }
   #ch7 .pin { padding-top: 18svh; }   /* CTA 는 3D 보다 버튼이 주인공 */
   /* 데이터 패널은 절대배치를 풀고 카피 바로 위에 흐름으로 놓는다 —
-     3D 를 가리지도, 우측 레일과 겹치지도 않는다 */
+     3D 를 가리지도, 데스크톱의 좌/우 배치 차이(#ch5)도 자동으로 사라진다 */
+  /* width 는 반드시 명시한다 — .pin 이 align-items: flex-start 라 auto 로 두면
+     fit-content 가 되어, 내용이 적은 수익 패널만 좁게 서는 등 패널마다 폭이 달라진다.
+     100% 가 아니라 -24px 인 것은 우측 레일(챕터 번호가 뷰포트 우측 ~33px까지 온다)
+     자리를 비워 두기 위해서다. 카피는 글줄이라 밑으로 지나가도 되지만
+     패널은 테두리 있는 카드라 겹치면 잘려 보인다. */
   .wallet, .growth-panel, .earn-panel {
     position: static; order: -1;
-    width: calc(100% - 24px); margin: 0 0 13px;   /* 우측 레일 자리 확보 */
-    padding: 14px 16px; border-radius: 16px;
+    width: calc(100% - 24px); margin: 0 0 13px;
+    padding: 15px 17px; border-radius: 17px;
     box-shadow: 0 16px 44px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
-  #ch5 .growth-panel { left: auto; right: auto; }
   .copy { width: 100%; }
   .copy.low { align-self: auto; }
-  .wallet, .growth-panel, .earn-panel {
-    right: 22px; left: 22px; width: auto;
-    bottom: auto; top: calc(50vh - 132px);
-    padding: 15px 17px; border-radius: 17px;
-  }
-  #ch5 .growth-panel { left: 22px; right: 22px; }
   .wallet-head, .panel-head { font-size: 12.5px; }
   .wallet-head em, .panel-head em { font-size: 9px; letter-spacing: 0.14em; }
   .wallet-grid { gap: 10px; margin-top: 12px; }

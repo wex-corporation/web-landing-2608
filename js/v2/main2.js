@@ -16,6 +16,13 @@ const BASE_PR = SNAP ? 1 : Math.min(devicePixelRatio, MOBILE ? 1.5 : 2);
 renderer.setPixelRatio(BASE_PR);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// 그림자 맵은 건물이 움직일 때만 다시 그린다. 브릭 변형이 전부 셰이더 유니폼이라
+// uProg 가 멈추고 uShatter 가 0 이면(체류 시간의 대부분) 그림자는 한 픽셀도 안 변한다 —
+// 그런데 autoUpdate 는 매 프레임 브릭 2,000개를 깊이 패스로 또 그린다.
+// 카메라·스윕·램프는 그림자와 무관하다: 그림자는 라이트 공간이고, 스윕·고스트는
+// 프래그먼트 전용이며, 자동차·폴·토큰·코인은 castShadow 를 켠 적이 없다.
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.needsUpdate = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -506,6 +513,7 @@ const state = {
   interiorI: 0, sign: 0, cars: 0,
   tokScale: 0, tokAlpha: 1, tokPos: new THREE.Vector3(),
 };
+let shadowProg = -1, shadowShatter = -1;   // 마지막으로 그림자를 그린 시점의 상태
 const tmpCol = new THREE.Color();
 const tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3(), tmpD = new THREE.Vector3();
 
@@ -716,6 +724,15 @@ function director(t, dt) {
     token.mats.forEach((mm) => (mm.opacity = state.tokAlpha));
   }
 
+  // 그림자 재렌더 판정 — 조립(prog)이 움직이거나 조각화(shatter) 구간이면 갱신.
+  // shatter > 0 은 링이 uTime·uRingRot 으로 계속 도는 상태라 '변화량'이 아니라 '상태'로 본다.
+  if (Math.abs(state.prog - shadowProg) > 1e-4 || state.shatter > 5e-4 ||
+      Math.abs(state.shatter - shadowShatter) > 1e-4) {
+    renderer.shadowMap.needsUpdate = true;
+    shadowProg = state.prog;
+    shadowShatter = state.shatter;
+  }
+
   building.update(state, t);
   coins.update(t, state.yield * (1 - sp(T, 6.9, 7.15)));
   post.bloom.strength = (0.36 + state.holo * 0.1 + sweepI * 0.16 + smoothstep(0.05, 0.5, state.shatter) * 0.08) * bloomScale;
@@ -745,6 +762,7 @@ function applyTier() {
   building.brickSys.materials.forEach((m) => (m.needsUpdate = true));
   if (building.brickSys.depthMat) building.brickSys.depthMat.needsUpdate = true;
   if (floor.shadowMat) floor.shadowMat.needsUpdate = true;
+  renderer.shadowMap.needsUpdate = true;   // 해상도를 바꿨으면 정지 중이어도 한 번은 다시 그린다
   resize();
 }
 
@@ -755,6 +773,14 @@ function applyTier() {
 //
 // 페이지를 실제로 스크롤하지 않고 타임라인만 잠깐 앞당긴다.
 // scrollY 를 건드리면 관성·스냅과 엉키고 사용자가 되돌리기도 어렵다.
+// 손가락이 닿아 있는 동안은 러프를 짧게(시정수 190ms → 90ms) 잡는다.
+// iOS 관성 위에 우리 러프가 또 얹히면 '손을 안 따라온다'로 읽힌다 —
+// 조작 중엔 바짝 붙고, 손을 떼면 원래의 부드러움으로 돌아간다.
+let touching = false;
+addEventListener('touchstart', () => { touching = true; }, { passive: true });
+addEventListener('touchend', (e) => { if (!e.touches.length) touching = false; }, { passive: true });
+addEventListener('touchcancel', (e) => { if (!e.touches.length) touching = false; }, { passive: true });
+
 const NUDGE_WAIT = 2.5, NUDGE_DUR = 1.9, NUDGE_AMP = 0.26;  // 0.26 이면 밴드가 건물 발치까지 오른다
 let nudgeAt = -1, nudgeDone = false, touched = false;
 if (!SNAP && !REDUCED) {
@@ -785,7 +811,7 @@ function frame() {
   updateSnap(dt);
   rawT = scrollToT();
   targetT = clamp(rawT + nudgeAmount(t), 0, 7.9999);
-  const k = SNAP || REDUCED ? 1 : 1 - Math.exp(-dt * 5.2);
+  const k = SNAP || REDUCED ? 1 : 1 - Math.exp(-dt * (touching ? 11 : 5.2));
   T += (targetT - T) * k;
   director(t, dt);
   uiUpdate();

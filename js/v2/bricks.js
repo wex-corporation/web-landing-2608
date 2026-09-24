@@ -137,7 +137,10 @@ function injectBrickAnim(mat, u, isDepth = false) {
           vec3 pos = mix(aScat, aTgt, e);
           pos.y += sin(3.14159 * e) * 26.0;
           float ang = (1.0 - e) * (aSeed - 0.5) * 9.0;
-          vFly = 1.0 - e;
+          // 조립 비행 브릭만 발광을 키운다(×2.4 → 유효 0.96) — 어중간하면 '깨진 렌더링',
+          // 또렷하면 '조립 애니메이션'으로 읽힌다. 조각화 링(se)은 브릭 수천 개가 동시에
+          // 빛나는 상태라 여기서 같이 키우면 블룸이 화면을 통째로 태운다. 링은 0.4 유지.
+          vFly = (1.0 - e) * 2.4;
 
           // ── 조각화 (표면 → 토큰 링)
           float delay = aSeed * 0.32 + aOrder * 0.42;
